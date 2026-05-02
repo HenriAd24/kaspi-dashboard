@@ -535,7 +535,6 @@ def _warmup():
     d = fetch_live_price(t);      d and cache_set(f"{t}:live", d)
     d = fetch_historical_pe(t);   d and cache_set(f"{t}:pe", d)
     d = fetch_company_info(t);    d and cache_set(f"{t}:info", d)
-    d = fetch_price_history(t);   d and cache_set(f"{t}:ph", d)
     log.info("Warmup done: %s", t)
 
 

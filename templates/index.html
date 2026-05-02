@@ -202,33 +202,7 @@ main {
 .chart-title { font-size: 15px; font-weight: 700; color: var(--text); }
 .chart-subtitle { font-size: 12px; color: var(--muted); margin-top: 2px; }
 
-.tabs {
-  display: flex;
-  border-bottom: 1px solid var(--border);
-  padding: 0 20px;
-  margin-top: 14px;
-  gap: 4px;
-}
-.tab-btn {
-  padding: 8px 14px;
-  border: none;
-  background: none;
-  font-size: 13px;
-  font-weight: 600;
-  color: var(--muted);
-  cursor: pointer;
-  border-bottom: 2px solid transparent;
-  margin-bottom: -1px;
-  transition: color .15s, border-color .15s;
-  border-radius: 6px 6px 0 0;
-}
-.tab-btn:hover { color: var(--text); background: var(--bg); }
-.tab-btn.active { color: var(--primary); border-bottom-color: var(--primary); }
-
-.tab-pane { display: none; }
-.tab-pane.active { display: block; }
-
-#pe-chart, #price-chart {
+#pe-chart {
   width: 100%;
   height: 400px;
   min-height: 280px;
@@ -472,17 +446,7 @@ footer {
       </div>
     </div>
 
-    <div class="tabs">
-      <button class="tab-btn active" onclick="switchTab('pe')">KGV-Korridor</button>
-      <button class="tab-btn" onclick="switchTab('price')">Kursverlauf (2J)</button>
-    </div>
-
-    <div id="tab-pe" class="tab-pane active">
-      <div id="pe-chart"><div class="loading-box"><div class="spinner"></div><span>Berechne historisches KGV…</span></div></div>
-    </div>
-    <div id="tab-price" class="tab-pane">
-      <div id="price-chart"><div class="loading-box"><div class="spinner"></div><span>Lade Kursdaten…</span></div></div>
-    </div>
+    <div id="pe-chart"><div class="loading-box"><div class="spinner"></div><span>Berechne historisches KGV…</span></div></div>
 
     <div class="stats-bar" id="stats-bar" style="display:none">
       <div class="stat-item"><div class="stat-label">P10</div><div id="s-p10" class="stat-value stat-p10">–</div></div>
@@ -550,7 +514,6 @@ footer {
 
 // ── State ──────────────────────────────────────────────────────────────────
 let currentTicker = '{{ default_ticker }}';
-let peLoaded = false, priceLoaded = false;
 let liveTimer = null, infoTimer = null;
 let peData = null;
 
@@ -598,7 +561,7 @@ function searchTicker() {
 el('ticker-input').addEventListener('keydown', e => { if (e.key === 'Enter') searchTicker(); });
 
 function resetAndLoad() {
-  peLoaded = false; priceLoaded = false; peData = null;
+  peData = null;
   clearInterval(liveTimer); clearInterval(infoTimer);
 
   el('price').textContent = '–';
@@ -613,23 +576,9 @@ function resetAndLoad() {
    'm-52h-sub','m-52l-sub'].forEach(id => el(id).textContent = '–');
 
   el('pe-chart').innerHTML = `<div class="loading-box"><div class="spinner"></div><span>Berechne historisches KGV…</span></div>`;
-  el('price-chart').innerHTML = `<div class="loading-box"><div class="spinner"></div><span>Lade Kursdaten…</span></div>`;
-  if (document.getElementById('tab-pe').classList.contains('active')) priceLoaded = false;
 
   setStatus('loading');
   loadAll();
-}
-
-// ── Tab switching ──────────────────────────────────────────────────────────
-function switchTab(tab) {
-  document.querySelectorAll('.tab-btn').forEach((b,i) =>
-    b.classList.toggle('active', (i===0 && tab==='pe') || (i===1 && tab==='price')));
-  el('tab-pe').classList.toggle('active', tab === 'pe');
-  el('tab-price').classList.toggle('active', tab === 'price');
-  if (tab === 'price' && !priceLoaded) loadPriceChart();
-  if (tab === 'pe') {
-    setTimeout(() => { try { Plotly.Plots.resize(el('pe-chart')); } catch(e){} }, 50);
-  }
 }
 
 // ── Live price ─────────────────────────────────────────────────────────────
@@ -826,77 +775,6 @@ function renderPEChart(d) {
     });
   } catch(e) {
     el('pe-chart').innerHTML = `<div class="error-box">Chart-Fehler: ${e.message}</div>`;
-  }
-}
-
-// ── Price Chart ────────────────────────────────────────────────────────────
-async function loadPriceChart() {
-  priceLoaded = true;
-  if (!el('price-chart').querySelector('.loading-box'))
-    el('price-chart').innerHTML = `<div class="loading-box"><div class="spinner"></div><span>Lade Kursdaten…</span></div>`;
-  try {
-    const rows = await apiFetch('/api/price-history', 25000);
-    if (!rows || rows.length === 0) throw new Error('keine Daten');
-    renderPriceChart(rows);
-  } catch(e) {
-    el('price-chart').innerHTML = `<div class="error-box">⚠ Kursdaten nicht verfügbar.</div>`;
-  }
-}
-
-function renderPriceChart(rows) {
-  const dates  = rows.map(r => r.date);
-  const closes = rows.map(r => r.close);
-  const first  = closes[0], last = closes[closes.length-1];
-  const up     = last >= first;
-  const lc     = up ? '#15803d' : '#b91c1c';
-  const fc     = up ? 'rgba(21,128,61,0.07)' : 'rgba(185,28,28,0.07)';
-  const mobile = window.innerWidth < 640;
-
-  const traces = [{
-    x:dates, y:closes,
-    type:'scatter', mode:'lines',
-    line:{color:lc, width:2},
-    fill:'tozeroy', fillcolor:fc,
-    hovertemplate:'<b>%{x}</b><br>Kurs: <b>$%{y:.2f}</b><extra></extra>',
-  }];
-
-  const layout = {
-    paper_bgcolor:'#fff', plot_bgcolor:'#fafbff',
-    font:{family:'-apple-system,sans-serif', color:'#64748b', size:11},
-    xaxis:{
-      color:'#94a3b8', gridcolor:'#f1f5f9', linecolor:'#e2e8f0',
-      tickfont:{color:'#94a3b8', size:10}, zeroline:false,
-      rangeslider: mobile ? {visible:false} : {visible:true, bgcolor:'#f8fafc', thickness:0.04},
-      rangeselector: mobile ? {} : {
-        bgcolor:'#f8fafc', activecolor:'#dbeafe', font:{color:'#475569', size:11},
-        buttons:[
-          {count:1,label:'1M',step:'month',stepmode:'backward'},
-          {count:3,label:'3M',step:'month',stepmode:'backward'},
-          {count:6,label:'6M',step:'month',stepmode:'backward'},
-          {count:1,label:'1J',step:'year', stepmode:'backward'},
-          {step:'all',label:'Max'},
-        ],
-      },
-    },
-    yaxis:{
-      color:'#94a3b8', gridcolor:'#f1f5f9', linecolor:'#e2e8f0',
-      tickfont:{color:'#94a3b8', size:10}, zeroline:false, tickprefix:'$',
-    },
-    margin: mobile ? {l:52,r:14,t:10,b:44} : {l:60,r:24,t:14,b:55},
-    hovermode:'x unified',
-    hoverlabel:{bgcolor:'#1e293b', bordercolor:'#334155', font:{color:'#f8fafc'}},
-    showlegend:false,
-  };
-
-  try {
-    Plotly.react('price-chart', traces, layout, {
-      responsive:true,
-      displayModeBar: !mobile,
-      modeBarButtonsToRemove:['lasso2d','select2d'],
-      displaylogo:false,
-    });
-  } catch(e) {
-    el('price-chart').innerHTML = `<div class="error-box">Chart-Fehler.</div>`;
   }
 }
 
