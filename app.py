@@ -144,68 +144,105 @@ def fetch_live_price() -> dict | None:
 # ---------------------------------------------------------------------------
 
 def fetch_company_info() -> dict:
+    t    = _ticker()
+    info = {}
     try:
-        info = _ticker().info
-        mc   = info.get("marketCap")
-        return {
-            "name":           info.get("longName", COMPANY_NAME),
-            "exchange":       info.get("exchange"),
-            "sector":         info.get("sector"),
-            "industry":       info.get("industry"),
-            "market_cap":     mc,
-            "market_cap_fmt": f"${mc/1e9:.1f}B" if mc else "-",
-            "trailing_pe":    info.get("trailingPE"),
-            "forward_pe":     info.get("forwardPE"),
-            "trailing_eps":   info.get("trailingEps"),
-            "peg_ratio":      info.get("pegRatio"),
-            "dividend_yield": info.get("dividendYield"),
-            "fifty2_high":    info.get("fiftyTwoWeekHigh"),
-            "fifty2_low":     info.get("fiftyTwoWeekLow"),
-            "avg_volume":     info.get("averageVolume"),
-            "beta":           info.get("beta"),
-            "shares_out":     info.get("sharesOutstanding"),
-            "timestamp":      datetime.now().isoformat(),
-        }
+        raw = t.info
+        if raw and len(raw) > 5:
+            info = raw
     except Exception as e:
-        log.error("Company info failed: %s", e)
-        return {}
+        log.warning("t.info failed in fetch_company_info: %s", e)
+
+    mc = info.get("marketCap")
+
+    # Fallback: get market cap and price from fast_info if info is thin
+    if not mc:
+        try:
+            fi = t.fast_info
+            mc = int(fi.market_cap) if fi.market_cap else None
+        except Exception:
+            pass
+
+    result = {
+        "name":           info.get("longName", COMPANY_NAME),
+        "exchange":       info.get("exchange", "NASDAQ"),
+        "sector":         info.get("sector"),
+        "industry":       info.get("industry"),
+        "market_cap":     mc,
+        "market_cap_fmt": f"${mc/1e9:.1f}B" if mc else "-",
+        "trailing_pe":    info.get("trailingPE"),
+        "forward_pe":     info.get("forwardPE"),
+        "trailing_eps":   info.get("trailingEps"),
+        "peg_ratio":      info.get("pegRatio"),
+        "dividend_yield": info.get("dividendYield"),
+        "fifty2_high":    info.get("fiftyTwoWeekHigh"),
+        "fifty2_low":     info.get("fiftyTwoWeekLow"),
+        "avg_volume":     info.get("averageVolume"),
+        "beta":           info.get("beta"),
+        "shares_out":     info.get("sharesOutstanding"),
+        "timestamp":      datetime.now().isoformat(),
+    }
+
+    # If info was completely empty, try to fill some fields from pe cache
+    if not info:
+        log.warning("fetch_company_info: info empty, returning minimal data")
+
+    return result
 
 
 # ---------------------------------------------------------------------------
 # Historical P/E  (KSPI-specific: KZT financials -> USD P/E)
 # ---------------------------------------------------------------------------
 
+def _get_usd_kzt_rate() -> float:
+    """Fetch live USD/KZT exchange rate from yfinance. Returns KZT per 1 USD."""
+    try:
+        rate = float(yf.Ticker("USDKZT=X").fast_info.last_price)
+        if 300 < rate < 1000:  # sanity check
+            log.info("USDKZT=X rate: %.2f", rate)
+            return rate
+    except Exception as e:
+        log.warning("USDKZT=X fetch failed: %s", e)
+    return 463.0  # approximate fallback (~2024–2025 average)
+
+
 def _build_ttm_eps_steps(t: yf.Ticker, info: dict) -> list:
     """
     Return list of (date_str, ttm_eps_usd) sorted ascending.
     Each entry is the TTM EPS valid from that date forward.
+    Works even if info is empty (cloud-safe fallbacks).
     """
     trailing_eps_usd = info.get("trailingEps")
+
+    # Shares: prefer info, fall back to fast_info
     shares = (info.get("sharesOutstanding") or
               info.get("impliedSharesOutstanding") or 0)
-
-    if not trailing_eps_usd or not shares:
-        log.warning("Missing trailingEps or shares; cannot build EPS steps")
-        return []
+    if not shares:
+        try:
+            shares = int(t.fast_info.shares)
+            log.info("Shares from fast_info: %d", shares)
+        except Exception as e:
+            log.warning("fast_info.shares failed: %s", e)
 
     steps = []
 
     # --- Determine KZT->USD conversion rate ---
     kzt_to_usd = None
 
-    # Primary: earnings_history has actual quarterly KZT EPS per share
-    try:
-        eh = t.earnings_history
-        if eh is not None and not eh.empty and "epsActual" in eh.columns:
-            last4 = float(eh["epsActual"].tail(4).sum())
-            if last4 > 0:
-                kzt_to_usd = float(trailing_eps_usd) / last4
-                log.info("KZT->USD = %.6f (earnings_history)", kzt_to_usd)
-    except Exception as e:
-        log.debug("earnings_history: %s", e)
+    # Method 1: trailingEps (USD) / sum(last 4 quarters KZT EPS)
+    if trailing_eps_usd:
+        try:
+            eh = t.earnings_history
+            if eh is not None and not eh.empty and "epsActual" in eh.columns:
+                last4 = float(eh["epsActual"].tail(4).sum())
+                if last4 > 0:
+                    kzt_to_usd = float(trailing_eps_usd) / last4
+                    log.info("KZT->USD = %.6f (earnings_history)", kzt_to_usd)
+        except Exception as e:
+            log.debug("earnings_history kzt_to_usd: %s", e)
 
-    # Fallback: annual NI / shares -> KZT EPS per share
-    if kzt_to_usd is None:
+    # Method 2: trailingEps (USD) / annual NI per share (KZT)
+    if kzt_to_usd is None and trailing_eps_usd and shares:
         try:
             ist = t.income_stmt
             if ist is not None and "Net Income" in ist.index:
@@ -216,8 +253,14 @@ def _build_ttm_eps_steps(t: yf.Ticker, info: dict) -> list:
         except Exception as e:
             log.debug("income_stmt kzt_to_usd: %s", e)
 
+    # Method 3: live USDKZT exchange rate (works without t.info)
     if kzt_to_usd is None:
-        log.error("Cannot determine KZT->USD conversion")
+        usd_kzt = _get_usd_kzt_rate()
+        kzt_to_usd = 1.0 / usd_kzt
+        log.info("KZT->USD = %.6f (exchange rate: 1/%.0f)", kzt_to_usd, usd_kzt)
+
+    if not shares:
+        log.error("Cannot determine shares outstanding")
         return []
 
     # --- Collect quarterly KZT EPS per share ---
@@ -291,12 +334,31 @@ def _build_ttm_eps_steps(t: yf.Ticker, info: dict) -> list:
 
 
 def fetch_historical_pe() -> dict | None:
-    t    = _ticker()
-    info = t.info
+    t = _ticker()
+
+    # t.info can fail on cloud servers (Yahoo Finance IP blocks) — always use try/except
+    info = {}
+    try:
+        raw = t.info
+        if raw and len(raw) > 5:
+            info = raw
+            log.info("t.info OK (%d fields)", len(info))
+        else:
+            log.warning("t.info returned empty/minimal dict")
+    except Exception as e:
+        log.warning("t.info failed: %s", e)
 
     current_pe    = info.get("trailingPE")
     current_eps   = info.get("trailingEps")
     current_price = info.get("regularMarketPrice") or info.get("currentPrice")
+
+    # Fallback: get current price from fast_info if info is empty
+    if not current_price:
+        try:
+            current_price = float(t.fast_info.last_price)
+            log.info("current_price from fast_info: $%.2f", current_price)
+        except Exception as e:
+            log.warning("fast_info.last_price failed: %s", e)
 
     # Build EPS step timeline
     eps_steps = _build_ttm_eps_steps(t, info)
@@ -348,6 +410,14 @@ def fetch_historical_pe() -> dict | None:
                 "price":   round(price, 2),
                 "ttm_eps": round(ttm_eps, 4),
             })
+
+    # If info was empty, compute current PE from the latest EPS step + live price
+    if not current_pe and eps_steps and current_price:
+        latest_eps = eps_steps[-1][1]
+        if latest_eps > 0:
+            current_pe  = round(current_price / latest_eps, 2)
+            current_eps = latest_eps
+            log.info("Computed current PE=%.2f from eps_steps (no info)", current_pe)
 
     # Ensure today is represented
     if current_pe and current_pe > 0 and current_price:
