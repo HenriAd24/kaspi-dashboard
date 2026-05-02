@@ -171,8 +171,23 @@ def fetch_company_info() -> dict:
     except Exception as e:
         log.warning("fast_info failed in fetch_company_info: %s", e)
 
-    # Trailing EPS: prefer info, compute from earnings_history as fallback
+    # Trailing EPS / PE — try info first, then PE cache, then earnings_history
     trailing_eps = info.get("trailingEps")
+    trailing_pe  = info.get("trailingPE")
+
+    # Best fallback: read from the already-computed PE cache (no extra API call)
+    if not trailing_pe or not trailing_eps:
+        pe_cached = cache_get("pe", 7200)
+        if pe_cached:
+            if not trailing_pe:
+                trailing_pe = pe_cached.get("current_pe")
+            if not trailing_eps and trailing_pe and fi_data.get("price"):
+                trailing_eps = round(fi_data["price"] / trailing_pe, 2)
+            if trailing_pe:
+                log.info("EPS/PE from PE cache: pe=%.2f eps=%.2f",
+                         trailing_pe or 0, trailing_eps or 0)
+
+    # Last resort: compute EPS from earnings_history + exchange rate
     if not trailing_eps:
         try:
             eh = t.earnings_history
@@ -181,15 +196,13 @@ def fetch_company_info() -> dict:
                 if ttm_kzt > 0:
                     usd_kzt = _get_usd_kzt_rate()
                     trailing_eps = round(ttm_kzt / usd_kzt, 2)
-                    log.info("Trailing EPS computed: $%.2f (%.0f KZT / %.0f)", trailing_eps, ttm_kzt, usd_kzt)
+                    log.info("Trailing EPS from earnings_history: $%.2f", trailing_eps)
         except Exception as e:
-            log.warning("EPS fallback failed: %s", e)
+            log.warning("EPS earnings_history fallback failed: %s", e)
 
-    # Trailing PE: prefer info, compute from price / EPS as fallback
-    trailing_pe = info.get("trailingPE")
     if not trailing_pe and trailing_eps and fi_data.get("price"):
         trailing_pe = round(fi_data["price"] / trailing_eps, 2)
-        log.info("Trailing PE computed: %.2f", trailing_pe)
+        log.info("Trailing PE computed from price/eps: %.2f", trailing_pe)
 
     mc = info.get("marketCap") or fi_data.get("market_cap")
 
@@ -603,14 +616,15 @@ def _warmup():
     d = fetch_live_price()
     if d:
         cache_set("live", d)
-    log.info("Warmup: pre-loading company info ...")
-    d = fetch_company_info()
-    if d:
-        cache_set("info", d)
+    # PE first — company info reads EPS/PE from the PE cache as a fallback
     log.info("Warmup: pre-loading historical P/E (this may take ~20s) ...")
     d = fetch_historical_pe()
     if d:
         cache_set("pe", d)
+    log.info("Warmup: pre-loading company info ...")
+    d = fetch_company_info()
+    if d:
+        cache_set("info", d)
     log.info("Warmup: pre-loading price history ...")
     d = fetch_price_history()
     if d:
