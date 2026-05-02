@@ -150,44 +150,68 @@ def fetch_company_info() -> dict:
         raw = t.info
         if raw and len(raw) > 5:
             info = raw
+            log.info("t.info OK (%d fields)", len(info))
     except Exception as e:
         log.warning("t.info failed in fetch_company_info: %s", e)
 
-    mc = info.get("marketCap")
+    # Always try fast_info — it works even when t.info is blocked
+    fi_data = {}
+    try:
+        fi = t.fast_info
+        fi_data = {
+            "market_cap": int(fi.market_cap)                    if fi.market_cap               else None,
+            "year_high":  round(float(fi.year_high), 2)         if fi.year_high                else None,
+            "year_low":   round(float(fi.year_low),  2)         if fi.year_low                 else None,
+            "avg_volume": int(fi.three_month_average_volume)    if fi.three_month_average_volume else None,
+            "shares":     int(fi.shares)                        if fi.shares                   else None,
+            "price":      round(float(fi.last_price), 2)        if fi.last_price               else None,
+        }
+        log.info("fast_info OK: price=$%.2f mc=$%.1fB",
+                 fi_data.get("price", 0), (fi_data.get("market_cap") or 0) / 1e9)
+    except Exception as e:
+        log.warning("fast_info failed in fetch_company_info: %s", e)
 
-    # Fallback: get market cap and price from fast_info if info is thin
-    if not mc:
+    # Trailing EPS: prefer info, compute from earnings_history as fallback
+    trailing_eps = info.get("trailingEps")
+    if not trailing_eps:
         try:
-            fi = t.fast_info
-            mc = int(fi.market_cap) if fi.market_cap else None
-        except Exception:
-            pass
+            eh = t.earnings_history
+            if eh is not None and not eh.empty and "epsActual" in eh.columns:
+                ttm_kzt = float(eh["epsActual"].tail(4).sum())
+                if ttm_kzt > 0:
+                    usd_kzt = _get_usd_kzt_rate()
+                    trailing_eps = round(ttm_kzt / usd_kzt, 2)
+                    log.info("Trailing EPS computed: $%.2f (%.0f KZT / %.0f)", trailing_eps, ttm_kzt, usd_kzt)
+        except Exception as e:
+            log.warning("EPS fallback failed: %s", e)
 
-    result = {
+    # Trailing PE: prefer info, compute from price / EPS as fallback
+    trailing_pe = info.get("trailingPE")
+    if not trailing_pe and trailing_eps and fi_data.get("price"):
+        trailing_pe = round(fi_data["price"] / trailing_eps, 2)
+        log.info("Trailing PE computed: %.2f", trailing_pe)
+
+    mc = info.get("marketCap") or fi_data.get("market_cap")
+
+    return {
         "name":           info.get("longName", COMPANY_NAME),
         "exchange":       info.get("exchange", "NASDAQ"),
         "sector":         info.get("sector"),
         "industry":       info.get("industry"),
         "market_cap":     mc,
         "market_cap_fmt": f"${mc/1e9:.1f}B" if mc else "-",
-        "trailing_pe":    info.get("trailingPE"),
+        "trailing_pe":    trailing_pe,
         "forward_pe":     info.get("forwardPE"),
-        "trailing_eps":   info.get("trailingEps"),
+        "trailing_eps":   trailing_eps,
         "peg_ratio":      info.get("pegRatio"),
         "dividend_yield": info.get("dividendYield"),
-        "fifty2_high":    info.get("fiftyTwoWeekHigh"),
-        "fifty2_low":     info.get("fiftyTwoWeekLow"),
-        "avg_volume":     info.get("averageVolume"),
+        "fifty2_high":    info.get("fiftyTwoWeekHigh") or fi_data.get("year_high"),
+        "fifty2_low":     info.get("fiftyTwoWeekLow")  or fi_data.get("year_low"),
+        "avg_volume":     info.get("averageVolume")     or fi_data.get("avg_volume"),
         "beta":           info.get("beta"),
-        "shares_out":     info.get("sharesOutstanding"),
+        "shares_out":     info.get("sharesOutstanding") or fi_data.get("shares"),
         "timestamp":      datetime.now().isoformat(),
     }
-
-    # If info was completely empty, try to fill some fields from pe cache
-    if not info:
-        log.warning("fetch_company_info: info empty, returning minimal data")
-
-    return result
 
 
 # ---------------------------------------------------------------------------
