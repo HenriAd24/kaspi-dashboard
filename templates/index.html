@@ -716,17 +716,13 @@ function renderPEChart(d) {
   }
 
   // ── Traces ──────────────────────────────────────────────────────────────
+  // Main line – no markers for performance with 500+ points
   const traces = [
     {
       x: dates, y: peVals,
-      type:'scatter', mode:'lines+markers',
+      type:'scatter', mode:'lines',
       name:'KGV',
-      line:{color:'#60a5fa', width:2.5, shape:'spline'},
-      marker:{
-        size: peVals.map((v,i) => i === peVals.length-1 ? 10 : 5),
-        color:'#60a5fa',
-        line:{color:'#1e3a5f', width:1}
-      },
+      line:{color:'#60a5fa', width:2},
       customdata: prices.map((p,i) => [p, epss[i]]),
       hovertemplate:
         '<b>%{x}</b><br>' +
@@ -734,6 +730,16 @@ function renderPEChart(d) {
         'Kurs: $%{customdata[0]:.2f}<br>' +
         'TTM-EPS: $%{customdata[1]:.2f}' +
         '<extra></extra>',
+    },
+    // Single marker for the latest data point
+    {
+      x: [dates[dates.length-1]],
+      y: [peVals[peVals.length-1]],
+      type:'scatter', mode:'markers',
+      name:'Aktuell',
+      marker:{size:10, color:'#60a5fa', line:{color:'#fff', width:2}},
+      hovertemplate: '<b>Heute</b><br>KGV: <b>%{y:.1f}x</b><extra></extra>',
+      showlegend:false,
     }
   ];
 
@@ -763,13 +769,18 @@ function renderPEChart(d) {
     dragmode:'zoom',
   };
 
-  Plotly.react('pe-chart', traces, layout, {
-    responsive:true,
-    displayModeBar:true,
-    modeBarButtonsToRemove:['lasso2d','select2d','autoScale2d'],
-    displaylogo:false,
-    toImageButtonOptions:{filename:'kaspi_kgv', scale:2}
-  });
+  try {
+    Plotly.react('pe-chart', traces, layout, {
+      responsive:true,
+      displayModeBar:true,
+      modeBarButtonsToRemove:['lasso2d','select2d','autoScale2d'],
+      displaylogo:false,
+      toImageButtonOptions:{filename:'kaspi_kgv', scale:2}
+    });
+  } catch(e) {
+    el('pe-chart').innerHTML = '<div class="error-msg">⚠ Diagramm konnte nicht gerendert werden.</div>';
+    console.error('Plotly error:', e);
+  }
 }
 
 // ── Price history chart ────────────────────────────────────────────────────
