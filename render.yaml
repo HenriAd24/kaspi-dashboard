@@ -1,0 +1,11 @@
+services:
+  - type: web
+    name: kaspi-dashboard
+    runtime: python
+    buildCommand: pip install -r requirements.txt && python generate_icons.py
+    startCommand: gunicorn app:app --workers 1 --timeout 120 --bind 0.0.0.0:$PORT
+    plan: free
+    healthCheckPath: /api/health
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.11.0

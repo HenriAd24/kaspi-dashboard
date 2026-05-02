@@ -1,0 +1,39 @@
+{
+  "name": "Kaspi.kz Dashboard",
+  "short_name": "KSPI",
+  "description": "Live Aktienkurs & historisches KGV für Kaspi.kz",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait-primary",
+  "background_color": "#0a0f1e",
+  "theme_color": "#0a0f1e",
+  "categories": ["finance"],
+  "icons": [
+    {
+      "src": "/static/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/static/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ],
+  "screenshots": [],
+  "shortcuts": [
+    {
+      "name": "Live-Kurs",
+      "url": "/?tab=price",
+      "description": "Aktueller KSPI Kurs"
+    },
+    {
+      "name": "KGV-Chart",
+      "url": "/?tab=pe",
+      "description": "Historisches Kurs-Gewinn-Verhältnis"
+    }
+  ]
+}
