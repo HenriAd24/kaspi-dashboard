@@ -5,766 +5,813 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<meta name="apple-mobile-web-app-title" content="KSPI">
-<meta name="theme-color" content="#0a0f1e">
-<meta name="description" content="Live Aktienkurs & historisches KGV für Kaspi.kz (KSPI)">
-<title>Kaspi.kz (KSPI) – Live Dashboard</title>
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="Stocks">
+<meta name="theme-color" content="#1d4ed8">
 <link rel="manifest" href="/manifest.json">
 <link rel="apple-touch-icon" href="/static/apple-touch-icon.png">
-<link rel="icon" type="image/png" sizes="192x192" href="/static/icon-192.png">
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+<title>Stock Dashboard</title>
 <script src="https://cdn.plot.ly/plotly-2.27.0.min.js"></script>
 <style>
-  :root {
-    --bg:        #0a0f1e;
-    --surface:   #111827;
-    --surface2:  #1a2332;
-    --border:    #1e293b;
-    --border2:   #2d3f55;
-    --text:      #e2e8f0;
-    --muted:     #64748b;
-    --green:     #22c55e;
-    --green-dim: rgba(34,197,94,.15);
-    --yellow:    #eab308;
-    --yellow-dim:rgba(234,179,8,.12);
-    --red:       #ef4444;
-    --red-dim:   rgba(239,68,68,.15);
-    --blue:      #3b82f6;
-    --blue-dim:  rgba(59,130,246,.12);
-    --orange:    #f97316;
-  }
-  * { box-sizing: border-box; margin: 0; padding: 0; }
-  body {
-    background: var(--bg);
-    color: var(--text);
-    font-family: 'Inter', sans-serif;
-    font-size: 14px;
-    line-height: 1.5;
-    min-height: 100vh;
-  }
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
-  /* ── Layout ── */
-  .shell { max-width: 1400px; margin: 0 auto; padding: 0 20px 40px; }
+:root {
+  --bg:        #f1f5f9;
+  --surface:   #ffffff;
+  --surface2:  #f8fafc;
+  --border:    #e2e8f0;
+  --text:      #0f172a;
+  --text2:     #334155;
+  --muted:     #64748b;
+  --primary:   #1d4ed8;
+  --primary-h: #1e40af;
+  --primary-l: #eff6ff;
+  --green:     #15803d;
+  --green-bg:  #f0fdf4;
+  --red:       #b91c1c;
+  --red-bg:    #fef2f2;
+  --amber:     #b45309;
+  --shadow:    0 1px 4px rgba(0,0,0,0.08), 0 4px 16px rgba(0,0,0,0.06);
+  --shadow-sm: 0 1px 3px rgba(0,0,0,0.07);
+  --radius:    14px;
+  --radius-sm: 9px;
+}
 
-  /* ── Header ── */
-  header {
-    display: flex; align-items: center; justify-content: space-between;
-    padding: 18px 0 14px;
-    border-bottom: 1px solid var(--border);
-    flex-wrap: wrap; gap: 10px;
-  }
-  .brand { display: flex; align-items: center; gap: 12px; }
-  .brand-logo {
-    width: 40px; height: 40px; border-radius: 10px;
-    background: linear-gradient(135deg, #2563eb, #1d4ed8);
-    display: flex; align-items: center; justify-content: center;
-    font-size: 18px; font-weight: 800; color: #fff; flex-shrink: 0;
-  }
-  .brand-name { font-size: 20px; font-weight: 700; }
-  .brand-ticker {
-    font-family: 'JetBrains Mono', monospace;
-    font-size: 12px; font-weight: 600;
-    background: var(--blue-dim); color: var(--blue);
-    border: 1px solid rgba(59,130,246,.3);
-    padding: 3px 8px; border-radius: 6px;
-  }
-  .header-right { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; }
-  .live-badge {
-    display: flex; align-items: center; gap: 6px;
-    font-size: 12px; font-weight: 600; color: var(--green);
-  }
-  .live-dot {
-    width: 8px; height: 8px; border-radius: 50%;
-    background: var(--green);
-    animation: pulse 2s infinite;
-  }
-  @keyframes pulse {
-    0%,100%{ opacity:1; transform:scale(1); }
-    50%     { opacity:.4; transform:scale(1.3); }
-  }
-  .last-update { font-size: 11px; color: var(--muted); }
-  .btn-refresh {
-    background: var(--surface2); border: 1px solid var(--border2);
-    color: var(--text); padding: 6px 14px; border-radius: 8px;
-    cursor: pointer; font-size: 12px; font-family: 'Inter', sans-serif;
-    transition: background .15s;
-  }
-  .btn-refresh:hover { background: #253350; }
+body {
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Inter", sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  min-height: 100dvh;
+  -webkit-font-smoothing: antialiased;
+}
 
-  /* ── Price hero ── */
-  .price-section {
-    display: grid; grid-template-columns: auto 1fr;
-    gap: 24px; padding: 28px 0 20px; align-items: center;
-    border-bottom: 1px solid var(--border);
-    flex-wrap: wrap;
-  }
-  @media(max-width:700px){ .price-section{ grid-template-columns:1fr; } }
-  .price-main { display: flex; align-items: baseline; gap: 16px; flex-wrap: wrap; }
-  .price-value {
-    font-family: 'JetBrains Mono', monospace;
-    font-size: 52px; font-weight: 700; letter-spacing: -1px;
-  }
-  .price-currency { font-size: 18px; color: var(--muted); align-self: center; }
-  .change-pill {
-    display: inline-flex; align-items: center; gap: 6px;
-    padding: 6px 14px; border-radius: 20px;
-    font-size: 16px; font-weight: 600;
-    font-family: 'JetBrains Mono', monospace;
-  }
-  .change-pill.up   { background: rgba(34,197,94,.15);  color: var(--green); }
-  .change-pill.down { background: rgba(239,68,68,.15);  color: var(--red);   }
-  .change-pill.flat { background: rgba(100,116,139,.15);color: var(--muted); }
-  .price-meta { display: flex; gap: 24px; flex-wrap: wrap; }
-  .meta-item { display: flex; flex-direction: column; }
-  .meta-label { font-size: 10px; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); }
-  .meta-value { font-family: 'JetBrains Mono', monospace; font-size: 14px; font-weight: 500; margin-top: 2px; }
+/* ── Header ─────────────────────────────────────────────────────────── */
+header {
+  background: var(--primary);
+  color: #fff;
+  padding: 0 16px;
+  position: sticky;
+  top: 0;
+  z-index: 100;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+}
+.header-inner {
+  max-width: 1320px;
+  margin: 0 auto;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  height: 56px;
+  flex-wrap: wrap;
+  padding: 6px 0;
+}
+.logo { font-size: 22px; font-weight: 800; letter-spacing: -0.5px; white-space: nowrap; }
+.logo span { opacity: .7; font-weight: 400; font-size: 13px; margin-left: 6px; }
 
-  /* ── Metrics grid ── */
-  .metrics-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(170px, 1fr));
-    gap: 10px; padding: 20px 0;
-    border-bottom: 1px solid var(--border);
-  }
-  .metric-card {
-    background: var(--surface); border: 1px solid var(--border);
-    border-radius: 10px; padding: 14px 16px;
-  }
-  .metric-label { font-size: 11px; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); }
-  .metric-value {
-    font-family: 'JetBrains Mono', monospace;
-    font-size: 20px; font-weight: 600; margin-top: 5px;
-  }
-  .metric-sub { font-size: 11px; color: var(--muted); margin-top: 2px; }
+.search-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex: 1;
+  max-width: 340px;
+}
+.search-input {
+  flex: 1;
+  height: 36px;
+  padding: 0 12px;
+  border: 2px solid rgba(255,255,255,0.3);
+  border-radius: 8px;
+  background: rgba(255,255,255,0.15);
+  color: #fff;
+  font-size: 14px;
+  font-weight: 600;
+  outline: none;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  transition: border-color .2s, background .2s;
+}
+.search-input::placeholder { color: rgba(255,255,255,0.5); text-transform: none; font-weight: 400; }
+.search-input:focus { border-color: rgba(255,255,255,0.7); background: rgba(255,255,255,0.2); }
+.search-btn {
+  height: 36px;
+  padding: 0 14px;
+  border: none;
+  border-radius: 8px;
+  background: rgba(255,255,255,0.2);
+  color: #fff;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background .15s;
+}
+.search-btn:hover { background: rgba(255,255,255,0.3); }
+.search-btn:active { background: rgba(255,255,255,0.15); }
 
-  /* ── Section headers ── */
-  .section-header {
-    display: flex; align-items: center; justify-content: space-between;
-    padding: 24px 0 14px; flex-wrap: wrap; gap: 10px;
-  }
-  .section-title { font-size: 18px; font-weight: 600; }
-  .section-desc  { font-size: 12px; color: var(--muted); margin-top: 2px; }
-  .legend { display: flex; gap: 16px; flex-wrap: wrap; }
-  .legend-item { display: flex; align-items: center; gap: 6px; font-size: 12px; }
-  .legend-dot { width: 12px; height: 12px; border-radius: 3px; flex-shrink: 0; }
+.header-status {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 12px;
+  opacity: .85;
+  white-space: nowrap;
+}
+.status-dot { width: 7px; height: 7px; border-radius: 50%; background: #4ade80; flex-shrink: 0; }
+.status-dot.loading { background: #fbbf24; animation: pulse 1s infinite; }
+.status-dot.error   { background: #f87171; }
+@keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.4} }
 
-  /* ── Valuation badge ── */
-  .val-badge-wrap { display: flex; justify-content: center; padding: 16px 0 8px; }
-  .val-badge {
-    display: inline-flex; align-items: center; gap: 10px;
-    padding: 10px 22px; border-radius: 30px;
-    font-size: 15px; font-weight: 600;
-    border: 1px solid;
-  }
-  .val-badge-label { font-size: 12px; opacity: .7; }
+/* ── Layout ──────────────────────────────────────────────────────────── */
+main {
+  max-width: 1320px;
+  margin: 0 auto;
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
 
-  /* ── Charts ── */
-  .chart-container {
-    background: var(--surface); border: 1px solid var(--border);
-    border-radius: 12px; overflow: hidden; padding: 4px;
-  }
-  .chart-tabs {
-    display: flex; gap: 0; border-bottom: 1px solid var(--border);
-    background: var(--surface);
-  }
-  .tab-btn {
-    padding: 10px 18px; font-size: 13px; font-weight: 500;
-    color: var(--muted); background: none; border: none;
-    border-bottom: 2px solid transparent; cursor: pointer;
-    font-family: 'Inter', sans-serif; transition: color .15s;
-  }
-  .tab-btn.active { color: var(--text); border-bottom-color: var(--blue); }
-  .tab-btn:hover  { color: var(--text); }
-  .tab-content { display: none; }
-  .tab-content.active { display: block; }
-  #pe-chart, #price-chart { width: 100%; height: 480px; }
+/* ── Cards ───────────────────────────────────────────────────────────── */
+.card {
+  background: var(--surface);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  padding: 18px 20px;
+}
 
-  /* ── Stats bar ── */
-  .stats-bar {
-    display: flex; flex-wrap: wrap; gap: 0;
-    border-top: 1px solid var(--border);
-    background: var(--surface);
-  }
-  .stat-item {
-    flex: 1; min-width: 100px;
-    padding: 12px 16px;
-    border-right: 1px solid var(--border);
-    display: flex; flex-direction: column;
-  }
-  .stat-item:last-child { border-right: none; }
-  .stat-label { font-size: 10px; text-transform: uppercase; letter-spacing: .05em; color: var(--muted); }
-  .stat-val { font-family: 'JetBrains Mono', monospace; font-size: 15px; font-weight: 600; margin-top: 3px; }
+/* ── Price card ──────────────────────────────────────────────────────── */
+.price-card {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 16px 28px;
+}
+.price-main { display: flex; align-items: baseline; gap: 14px; flex-wrap: wrap; }
+.company-name {
+  font-size: 13px;
+  color: var(--muted);
+  font-weight: 500;
+  margin-bottom: 2px;
+}
+.price-value {
+  font-size: 48px;
+  font-weight: 800;
+  letter-spacing: -2px;
+  color: var(--text);
+  font-variant-numeric: tabular-nums;
+  line-height: 1;
+}
+.price-currency { font-size: 22px; font-weight: 600; color: var(--muted); margin-right: 2px; }
+.price-change {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 11px;
+  border-radius: 20px;
+  font-size: 15px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+.price-change.up   { background: var(--green-bg); color: var(--green); }
+.price-change.down { background: var(--red-bg);   color: var(--red);   }
+.price-change.flat { background: var(--bg);       color: var(--muted); }
 
-  /* ── Loading / error ── */
-  .loading {
-    display: flex; align-items: center; justify-content: center;
-    height: 300px; color: var(--muted); gap: 10px;
-  }
-  .spinner {
-    width: 22px; height: 22px;
-    border: 2px solid var(--border2);
-    border-top-color: var(--blue);
-    border-radius: 50%;
-    animation: spin .7s linear infinite;
-  }
-  @keyframes spin { to { transform: rotate(360deg); } }
-  .error-msg {
-    display: flex; align-items: center; justify-content: center;
-    height: 200px; color: var(--red); gap: 8px; font-size: 13px;
-  }
+.price-stats {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 20px;
+  margin-left: auto;
+}
+.ps-item { display: flex; flex-direction: column; gap: 1px; }
+.ps-label { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: .5px; color: var(--muted); }
+.ps-value { font-size: 14px; font-weight: 600; color: var(--text2); font-variant-numeric: tabular-nums; }
 
-  /* ── Skeleton ── */
-  .skeleton {
-    background: linear-gradient(90deg, var(--surface2) 25%, var(--border2) 50%, var(--surface2) 75%);
-    background-size: 200% 100%;
-    animation: shimmer 1.5s infinite;
-    border-radius: 6px;
-  }
-  @keyframes shimmer { to { background-position: -200% 0; } }
+.last-update { font-size: 11px; color: var(--muted); margin-left: auto; }
 
-  /* ── Footer ── */
-  footer {
-    border-top: 1px solid var(--border);
-    padding: 16px 0;
-    display: flex; justify-content: space-between; align-items: center;
-    flex-wrap: wrap; gap: 10px;
-    font-size: 11px; color: var(--muted);
-  }
-  footer a { color: var(--muted); text-decoration: none; }
-  footer a:hover { color: var(--text); }
+/* ── Charts card ─────────────────────────────────────────────────────── */
+.chart-card { padding: 0; overflow: hidden; }
+.chart-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 10px;
+  padding: 16px 20px 0;
+}
+.chart-title { font-size: 15px; font-weight: 700; color: var(--text); }
+.chart-subtitle { font-size: 12px; color: var(--muted); margin-top: 2px; }
 
-  /* ── Install banner ── */
-  #install-banner {
-    display: none;
-    background: linear-gradient(135deg, #1e3a6e, #1e293b);
-    border: 1px solid rgba(59,130,246,.4);
-    border-radius: 14px; padding: 14px 18px;
-    margin: 14px 0 0; gap: 14px;
-    align-items: center; flex-wrap: wrap;
-  }
-  #install-banner.visible { display: flex; }
-  .install-icon { font-size: 28px; flex-shrink: 0; }
-  .install-text { flex: 1; min-width: 160px; }
-  .install-text strong { display: block; font-size: 14px; margin-bottom: 2px; }
-  .install-text span { font-size: 12px; color: var(--muted); }
-  .btn-install {
-    background: var(--blue); color: #fff; border: none;
-    padding: 9px 18px; border-radius: 10px;
-    font-family: 'Inter', sans-serif; font-size: 13px; font-weight: 600;
-    cursor: pointer; white-space: nowrap; flex-shrink: 0;
-    transition: background .15s;
-  }
-  .btn-install:hover { background: #2563eb; }
-  .btn-dismiss {
-    background: none; border: none; color: var(--muted);
-    cursor: pointer; font-size: 20px; padding: 0 4px;
-    line-height: 1; flex-shrink: 0;
-  }
+.tabs {
+  display: flex;
+  border-bottom: 1px solid var(--border);
+  padding: 0 20px;
+  margin-top: 14px;
+  gap: 4px;
+}
+.tab-btn {
+  padding: 8px 14px;
+  border: none;
+  background: none;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--muted);
+  cursor: pointer;
+  border-bottom: 2px solid transparent;
+  margin-bottom: -1px;
+  transition: color .15s, border-color .15s;
+  border-radius: 6px 6px 0 0;
+}
+.tab-btn:hover { color: var(--text); background: var(--bg); }
+.tab-btn.active { color: var(--primary); border-bottom-color: var(--primary); }
 
-  /* ── iOS install tip (shown inside banner on iOS) ── */
-  #ios-tip { display: none; font-size: 12px; color: var(--muted); }
+.tab-pane { display: none; }
+.tab-pane.active { display: block; }
 
-  /* ── Mobile refinements ── */
-  @media (max-width: 600px) {
-    .shell { padding: 0 12px 32px; }
-    .price-value { font-size: 38px; }
-    header { padding: 12px 0 10px; }
-    .brand-name { font-size: 17px; }
-    #pe-chart, #price-chart { height: 360px; }
-    .metrics-grid { grid-template-columns: repeat(2, 1fr); }
-    .stats-bar { flex-wrap: wrap; }
-    .stat-item { min-width: 45%; border-right: none; border-bottom: 1px solid var(--border); }
-    .section-title { font-size: 15px; }
-    .last-update { display: none; }
-  }
+#pe-chart, #price-chart {
+  width: 100%;
+  height: 400px;
+  min-height: 280px;
+}
 
-  /* Safe area insets (iPhone notch) */
-  body {
-    padding-top: env(safe-area-inset-top);
-    padding-bottom: env(safe-area-inset-bottom);
-  }
+/* ── Stats bar ───────────────────────────────────────────────────────── */
+.stats-bar {
+  display: flex;
+  align-items: stretch;
+  border-top: 1px solid var(--border);
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+}
+.stats-bar::-webkit-scrollbar { display: none; }
+.stat-item {
+  flex: 1;
+  min-width: 80px;
+  padding: 10px 14px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
+  border-right: 1px solid var(--border);
+}
+.stat-item:last-child { border-right: none; }
+.stat-label { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: .5px; color: var(--muted); }
+.stat-value { font-size: 14px; font-weight: 700; font-variant-numeric: tabular-nums; }
+.stat-p10  { color: #16a34a; }
+.stat-p25  { color: #65a30d; }
+.stat-med  { color: #ca8a04; }
+.stat-p75  { color: #ea580c; }
+.stat-p90  { color: #dc2626; }
+
+.val-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 8px 16px;
+  border-radius: 24px;
+  font-size: 13px;
+  font-weight: 700;
+  background: var(--primary-l);
+  color: var(--primary);
+  margin: 12px 20px 16px;
+}
+.val-dot { width: 9px; height: 9px; border-radius: 50%; flex-shrink: 0; }
+
+/* ── Metrics grid ────────────────────────────────────────────────────── */
+.metrics-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 10px;
+}
+.metric-card {
+  background: var(--surface);
+  border-radius: var(--radius-sm);
+  box-shadow: var(--shadow-sm);
+  padding: 14px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  border: 1px solid var(--border);
+}
+.metric-label {
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: .6px;
+  color: var(--muted);
+}
+.metric-value {
+  font-size: 22px;
+  font-weight: 800;
+  color: var(--text);
+  font-variant-numeric: tabular-nums;
+  line-height: 1.1;
+}
+.metric-sub { font-size: 11px; color: var(--muted); }
+
+/* ── Loading / error ─────────────────────────────────────────────────── */
+.loading-box {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  height: 100%;
+  min-height: 240px;
+  color: var(--muted);
+  font-size: 13px;
+}
+.spinner {
+  width: 32px;
+  height: 32px;
+  border: 3px solid var(--border);
+  border-top-color: var(--primary);
+  border-radius: 50%;
+  animation: spin .7s linear infinite;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+.error-box {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  height: 100%;
+  min-height: 200px;
+  justify-content: center;
+  color: var(--red);
+  font-size: 13px;
+}
+.retry-btn {
+  padding: 7px 18px;
+  background: var(--primary);
+  color: #fff;
+  border: none;
+  border-radius: 7px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+}
+.retry-btn:hover { background: var(--primary-h); }
+
+/* ── Install banner ──────────────────────────────────────────────────── */
+#install-banner {
+  display: none;
+  background: var(--primary);
+  color: #fff;
+  padding: 10px 16px;
+  align-items: center;
+  gap: 12px;
+  font-size: 13px;
+}
+#install-banner.visible { display: flex; }
+#install-banner button {
+  margin-left: auto;
+  padding: 6px 14px;
+  background: rgba(255,255,255,0.2);
+  border: none;
+  border-radius: 7px;
+  color: #fff;
+  font-weight: 600;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+#install-close {
+  background: none !important;
+  padding: 4px 8px !important;
+  opacity: .7;
+}
+
+/* ── Footer ──────────────────────────────────────────────────────────── */
+footer {
+  text-align: center;
+  padding: 20px 16px;
+  font-size: 11px;
+  color: var(--muted);
+}
+
+/* ── Responsive ──────────────────────────────────────────────────────── */
+@media (min-width: 480px) {
+  .metrics-grid { grid-template-columns: repeat(3, 1fr); }
+}
+@media (min-width: 768px) {
+  main { padding: 20px 24px; gap: 16px; }
+  .metrics-grid { grid-template-columns: repeat(4, 1fr); }
+  #pe-chart, #price-chart { height: 440px; }
+  .price-value { font-size: 56px; }
+}
+@media (min-width: 1024px) {
+  .metrics-grid { grid-template-columns: repeat(4, 1fr); }
+}
+@media (max-width: 479px) {
+  .price-value { font-size: 40px; }
+  .price-stats { gap: 6px 16px; }
+  .stat-item { padding: 8px 10px; min-width: 64px; }
+  #pe-chart, #price-chart { height: 320px; }
+  .search-row { max-width: 100%; }
+  .header-inner { height: auto; }
+}
 </style>
 </head>
 <body>
-<div class="shell">
 
-  <!-- ── Header ── -->
-  <header>
-    <div class="brand">
-      <div class="brand-logo">K</div>
-      <div>
-        <div style="display:flex;align-items:center;gap:8px">
-          <span class="brand-name">Kaspi.kz</span>
-          <span class="brand-ticker">NASDAQ: KSPI</span>
-        </div>
-        <div style="font-size:11px;color:var(--muted)">Joint Stock Company Kaspi.kz</div>
-      </div>
-    </div>
-    <div class="header-right">
-      <div class="live-badge"><div class="live-dot"></div>Live-Daten</div>
-      <div class="last-update" id="last-update">Aktualisierung läuft…</div>
-      <button class="btn-refresh" onclick="refreshAll()">⟳ Aktualisieren</button>
-    </div>
-  </header>
+<div id="install-banner">
+  📲 Als App installieren – kein Browser nötig
+  <button onclick="doInstall()">Installieren</button>
+  <button id="install-close" onclick="document.getElementById('install-banner').classList.remove('visible')">✕</button>
+</div>
 
-  <!-- ── PWA Install Banner ── -->
-  <div id="install-banner">
-    <div class="install-icon">📲</div>
-    <div class="install-text">
-      <strong>Als App installieren</strong>
-      <span id="install-sub">Zum Homescreen hinzufügen für nativen App-Zugriff</span>
+<header>
+  <div class="header-inner">
+    <div class="logo">📊 Stocks<span>Dashboard</span></div>
+    <div class="search-row">
+      <input id="ticker-input" class="search-input" type="text"
+             placeholder="Ticker, z.B. AAPL" maxlength="10"
+             autocomplete="off" autocorrect="off" spellcheck="false">
+      <button class="search-btn" onclick="searchTicker()">Suchen</button>
     </div>
-    <div id="ios-tip">
-      Tippe auf <b>Teilen</b> ↑ → <b>Zum Home-Bildschirm</b>
+    <div class="header-status">
+      <div id="status-dot" class="status-dot loading"></div>
+      <span id="status-text">Laden…</span>
     </div>
-    <button class="btn-install" id="btn-install-do" onclick="doInstall()">Installieren</button>
-    <button class="btn-dismiss" onclick="dismissBanner()" title="Schließen">×</button>
   </div>
+</header>
 
-  <!-- ── Price hero ── -->
-  <div class="price-section">
+<main>
+
+  <!-- Price card -->
+  <div class="card price-card">
     <div>
+      <div id="company-name" class="company-name">–</div>
       <div class="price-main">
-        <span class="price-currency">$</span>
-        <span class="price-value" id="price-val">
-          <span class="skeleton" style="display:inline-block;width:160px;height:52px">&nbsp;</span>
-        </span>
-        <span class="change-pill flat" id="change-pill">–</span>
+        <div>
+          <span class="price-currency">$</span><span id="price" class="price-value">–</span>
+        </div>
+        <div id="price-change" class="price-change flat">–</div>
       </div>
     </div>
-    <div class="price-meta">
-      <div class="meta-item">
-        <span class="meta-label">Eröffnung</span>
-        <span class="meta-value" id="prev-close">–</span>
+    <div class="price-stats">
+      <div class="ps-item"><span class="ps-label">Eröffnung</span><span id="ps-open"  class="ps-value">–</span></div>
+      <div class="ps-item"><span class="ps-label">Tageshoch</span><span id="ps-high"  class="ps-value">–</span></div>
+      <div class="ps-item"><span class="ps-label">Tagestief</span><span id="ps-low"   class="ps-value">–</span></div>
+      <div class="ps-item"><span class="ps-label">Volumen</span>  <span id="ps-vol"   class="ps-value">–</span></div>
+      <div class="ps-item"><span class="ps-label">Market Cap</span><span id="ps-mc"  class="ps-value">–</span></div>
+    </div>
+    <div id="last-update" class="last-update"></div>
+  </div>
+
+  <!-- Chart card -->
+  <div class="card chart-card">
+    <div class="chart-header">
+      <div>
+        <div class="chart-title">KGV-Korridor (Historisch)</div>
+        <div class="chart-subtitle">Zeigt ob die Aktie historisch günstig oder teuer bewertet ist</div>
       </div>
-      <div class="meta-item">
-        <span class="meta-label">Tageshoch</span>
-        <span class="meta-value" id="day-high">–</span>
+      <div id="val-badge" class="val-badge" style="display:none">
+        <div id="val-dot" class="val-dot"></div>
+        <span id="val-label">–</span>
       </div>
-      <div class="meta-item">
-        <span class="meta-label">Tagestief</span>
-        <span class="meta-value" id="day-low">–</span>
-      </div>
-      <div class="meta-item">
-        <span class="meta-label">Volumen</span>
-        <span class="meta-value" id="volume">–</span>
-      </div>
-      <div class="meta-item">
-        <span class="meta-label">Market Cap</span>
-        <span class="meta-value" id="mktcap">–</span>
-      </div>
+    </div>
+
+    <div class="tabs">
+      <button class="tab-btn active" onclick="switchTab('pe')">KGV-Korridor</button>
+      <button class="tab-btn" onclick="switchTab('price')">Kursverlauf (2J)</button>
+    </div>
+
+    <div id="tab-pe" class="tab-pane active">
+      <div id="pe-chart"><div class="loading-box"><div class="spinner"></div><span>Berechne historisches KGV…</span></div></div>
+    </div>
+    <div id="tab-price" class="tab-pane">
+      <div id="price-chart"><div class="loading-box"><div class="spinner"></div><span>Lade Kursdaten…</span></div></div>
+    </div>
+
+    <div class="stats-bar" id="stats-bar" style="display:none">
+      <div class="stat-item"><div class="stat-label">P10</div><div id="s-p10" class="stat-value stat-p10">–</div></div>
+      <div class="stat-item"><div class="stat-label">P25</div><div id="s-p25" class="stat-value stat-p25">–</div></div>
+      <div class="stat-item"><div class="stat-label">Median</div><div id="s-med" class="stat-value stat-med">–</div></div>
+      <div class="stat-item"><div class="stat-label">P75</div><div id="s-p75" class="stat-value stat-p75">–</div></div>
+      <div class="stat-item"><div class="stat-label">P90</div><div id="s-p90" class="stat-value stat-p90">–</div></div>
+      <div class="stat-item"><div class="stat-label">Aktuell</div><div id="s-cur" class="stat-value">–</div></div>
     </div>
   </div>
 
-  <!-- ── Metrics grid ── -->
-  <div class="metrics-grid" id="metrics-grid">
+  <!-- Metrics grid -->
+  <div class="metrics-grid">
     <div class="metric-card">
       <div class="metric-label">KGV (Trailing)</div>
-      <div class="metric-value" id="m-pe">–</div>
+      <div id="m-pe" class="metric-value">–</div>
       <div class="metric-sub">Kurs-Gewinn-Verhältnis</div>
     </div>
     <div class="metric-card">
       <div class="metric-label">KGV (Forward)</div>
-      <div class="metric-value" id="m-fpe">–</div>
+      <div id="m-fpe" class="metric-value">–</div>
       <div class="metric-sub">Erwartetes KGV</div>
     </div>
     <div class="metric-card">
       <div class="metric-label">EPS (TTM)</div>
-      <div class="metric-value" id="m-eps">–</div>
+      <div id="m-eps" class="metric-value">–</div>
       <div class="metric-sub">Gewinn je Aktie</div>
     </div>
     <div class="metric-card">
-      <div class="metric-label">PEG Ratio</div>
-      <div class="metric-value" id="m-peg">–</div>
-      <div class="metric-sub">P/E zu Wachstum</div>
-    </div>
-    <div class="metric-card">
-      <div class="metric-label">Dividendenrendite</div>
-      <div class="metric-value" id="m-div">–</div>
-      <div class="metric-sub">Jährliche Rendite</div>
+      <div class="metric-label">Div.-Rendite</div>
+      <div id="m-div" class="metric-value">–</div>
+      <div class="metric-sub">Jährliche Ausschüttung</div>
     </div>
     <div class="metric-card">
       <div class="metric-label">52W Hoch</div>
-      <div class="metric-value" id="m-52h">–</div>
-      <div class="metric-sub" id="m-52h-sub">–</div>
+      <div id="m-52h" class="metric-value">–</div>
+      <div id="m-52h-sub" class="metric-sub">–</div>
     </div>
     <div class="metric-card">
       <div class="metric-label">52W Tief</div>
-      <div class="metric-value" id="m-52l">–</div>
-      <div class="metric-sub" id="m-52l-sub">–</div>
+      <div id="m-52l" class="metric-value">–</div>
+      <div id="m-52l-sub" class="metric-sub">–</div>
     </div>
     <div class="metric-card">
       <div class="metric-label">Beta</div>
-      <div class="metric-value" id="m-beta">–</div>
-      <div class="metric-sub">Markt-Korrelation</div>
+      <div id="m-beta" class="metric-value">–</div>
+      <div class="metric-sub">Marktkorrelation</div>
+    </div>
+    <div class="metric-card">
+      <div class="metric-label">PEG Ratio</div>
+      <div id="m-peg" class="metric-value">–</div>
+      <div class="metric-sub">PE zu Wachstum</div>
     </div>
   </div>
 
-  <!-- ── KGV Corridor Chart ── -->
-  <div class="section-header">
-    <div>
-      <div class="section-title">Historisches KGV-Korridor</div>
-      <div class="section-desc">
-        Kurs-Gewinn-Verhältnis vs. historische Bandbreite — zeigt ob die Aktie aktuell günstig oder teuer bewertet ist
-      </div>
-    </div>
-    <div class="legend">
-      <div class="legend-item">
-        <div class="legend-dot" style="background:rgba(34,197,94,.5)"></div>
-        <span>Günstig (&lt;P25)</span>
-      </div>
-      <div class="legend-item">
-        <div class="legend-dot" style="background:rgba(234,179,8,.5)"></div>
-        <span>Fair Value (P25–P75)</span>
-      </div>
-      <div class="legend-item">
-        <div class="legend-dot" style="background:rgba(239,68,68,.5)"></div>
-        <span>Teuer (&gt;P75)</span>
-      </div>
-      <div class="legend-item">
-        <div class="legend-dot" style="background:#fff;border:1px solid #555"></div>
-        <span>Aktuelles KGV</span>
-      </div>
-    </div>
-  </div>
+</main>
 
-  <!-- Valuation badge -->
-  <div class="val-badge-wrap" id="val-badge-wrap" style="display:none">
-    <div class="val-badge" id="val-badge">
-      <span class="val-badge-label">Aktuelle Bewertung:</span>
-      <span id="val-label">–</span>
-      <span id="val-pe-display" style="font-size:13px;opacity:.8"></span>
-    </div>
-  </div>
-
-  <!-- Chart with tabs -->
-  <div class="chart-container">
-    <div class="chart-tabs">
-      <button class="tab-btn active" onclick="switchTab('pe')">📊 KGV-Korridor</button>
-      <button class="tab-btn" onclick="switchTab('price')">📈 Kursverlauf (2J)</button>
-    </div>
-    <div class="tab-content active" id="tab-pe">
-      <div id="pe-chart">
-        <div class="loading"><div class="spinner"></div>Berechne historisches KGV…</div>
-      </div>
-    </div>
-    <div class="tab-content" id="tab-price">
-      <div id="price-chart">
-        <div class="loading"><div class="spinner"></div>Lade Kursdaten…</div>
-      </div>
-    </div>
-  </div>
-
-  <!-- Stats bar -->
-  <div class="stats-bar" id="stats-bar" style="display:none">
-    <div class="stat-item">
-      <div class="stat-label">Minimum KGV</div>
-      <div class="stat-val" id="s-min">–</div>
-    </div>
-    <div class="stat-item">
-      <div class="stat-label">P10 (sehr günstig)</div>
-      <div class="stat-val" id="s-p10">–</div>
-    </div>
-    <div class="stat-item">
-      <div class="stat-label">P25 (günstig)</div>
-      <div class="stat-val" id="s-p25">–</div>
-    </div>
-    <div class="stat-item">
-      <div class="stat-label">Median</div>
-      <div class="stat-val" id="s-med">–</div>
-    </div>
-    <div class="stat-item">
-      <div class="stat-label">Durchschnitt</div>
-      <div class="stat-val" id="s-avg">–</div>
-    </div>
-    <div class="stat-item">
-      <div class="stat-label">P75 (teuer)</div>
-      <div class="stat-val" id="s-p75">–</div>
-    </div>
-    <div class="stat-item">
-      <div class="stat-label">P90 (sehr teuer)</div>
-      <div class="stat-val" id="s-p90">–</div>
-    </div>
-    <div class="stat-item">
-      <div class="stat-label">Maximum KGV</div>
-      <div class="stat-val" id="s-max">–</div>
-    </div>
-  </div>
-
-  <footer>
-    <div>Datenquelle: Yahoo Finance via yfinance · 15-Min-Verzögerung möglich · Nur zu Informationszwecken</div>
-    <div id="footer-source">–</div>
-  </footer>
-
-</div><!-- /shell -->
+<footer id="footer">
+  Daten: Yahoo Finance via yfinance &nbsp;·&nbsp; Kein Anlageberater &nbsp;·&nbsp;
+  <span id="footer-ticker"></span>
+</footer>
 
 <script>
+'use strict';
+
 // ── State ──────────────────────────────────────────────────────────────────
-let peData        = null;
-let priceLoaded   = false;
-let refreshTimer  = null;
+let currentTicker = '{{ default_ticker }}';
+let peLoaded = false, priceLoaded = false;
+let liveTimer = null, infoTimer = null;
+let peData = null;
 
-// ── Utilities ──────────────────────────────────────────────────────────────
-const fmt = (v, dec=2) => v != null ? parseFloat(v).toFixed(dec) : '–';
-const fmtLarge = v => {
-  if (v == null) return '–';
-  if (v >= 1e12) return `$${(v/1e12).toFixed(2)}T`;
-  if (v >= 1e9)  return `$${(v/1e9).toFixed(2)}B`;
-  if (v >= 1e6)  return `$${(v/1e6).toFixed(1)}M`;
-  return `$${v.toLocaleString()}`;
-};
-const fmtVol = v => v != null ? (v/1e6).toFixed(2)+'M' : '–';
+// ── Helpers ────────────────────────────────────────────────────────────────
 const el = id => document.getElementById(id);
+const fmt = (v, d=2) => v == null ? '–' : Number(v).toLocaleString('de-DE', {minimumFractionDigits:d, maximumFractionDigits:d});
 
-function setVal(id, val) {
-  const e = el(id);
-  if (e) e.textContent = val ?? '–';
+async function apiFetch(path, timeoutMs = 50000) {
+  const ctrl = new AbortController();
+  const tid  = setTimeout(() => ctrl.abort(), timeoutMs);
+  try {
+    const r = await fetch(path + (path.includes('?') ? '&' : '?') + `ticker=${encodeURIComponent(currentTicker)}`,
+                          { signal: ctrl.signal });
+    clearTimeout(tid);
+    if (!r.ok) throw new Error(`HTTP ${r.status}`);
+    return await r.json();
+  } catch (e) {
+    clearTimeout(tid);
+    throw e;
+  }
+}
+
+function setStatus(state) {
+  const dot  = el('status-dot');
+  const text = el('status-text');
+  dot.className = 'status-dot ' + (state === 'live' ? '' : state === 'loading' ? 'loading' : 'error');
+  text.textContent = state === 'live' ? 'Live-Daten' : state === 'loading' ? 'Laden…' : 'Fehler';
+}
+
+// ── Ticker search ──────────────────────────────────────────────────────────
+function searchTicker() {
+  const raw = el('ticker-input').value.trim().toUpperCase();
+  if (!raw || raw === currentTicker) return;
+  if (!/^[A-Z0-9.\-\^]{1,10}$/.test(raw)) {
+    el('ticker-input').style.borderColor = 'rgba(239,68,68,0.7)';
+    setTimeout(() => el('ticker-input').style.borderColor = '', 1000);
+    return;
+  }
+  currentTicker = raw;
+  localStorage.setItem('lastTicker', raw);
+  el('footer-ticker').textContent = raw;
+  resetAndLoad();
+}
+
+el('ticker-input').addEventListener('keydown', e => { if (e.key === 'Enter') searchTicker(); });
+
+function resetAndLoad() {
+  peLoaded = false; priceLoaded = false; peData = null;
+  clearInterval(liveTimer); clearInterval(infoTimer);
+
+  el('price').textContent = '–';
+  el('price-change').textContent = '–';
+  el('price-change').className = 'price-change flat';
+  el('company-name').textContent = '–';
+  el('ps-open').textContent = el('ps-high').textContent = el('ps-low').textContent =
+    el('ps-vol').textContent = el('ps-mc').textContent = '–';
+  el('stats-bar').style.display = 'none';
+  el('val-badge').style.display = 'none';
+  ['m-pe','m-fpe','m-eps','m-div','m-52h','m-52l','m-beta','m-peg',
+   'm-52h-sub','m-52l-sub'].forEach(id => el(id).textContent = '–');
+
+  el('pe-chart').innerHTML = `<div class="loading-box"><div class="spinner"></div><span>Berechne historisches KGV…</span></div>`;
+  el('price-chart').innerHTML = `<div class="loading-box"><div class="spinner"></div><span>Lade Kursdaten…</span></div>`;
+  if (document.getElementById('tab-pe').classList.contains('active')) priceLoaded = false;
+
+  setStatus('loading');
+  loadAll();
 }
 
 // ── Tab switching ──────────────────────────────────────────────────────────
-function switchTab(name) {
-  document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
-  document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
-  event.target.classList.add('active');
-  el('tab-'+name).classList.add('active');
-
-  if (name === 'price' && !priceLoaded) loadPriceChart();
-  if (name === 'pe' && peData) renderPEChart(peData);
-}
-
-// ── Load live price ────────────────────────────────────────────────────────
-async function loadLivePrice() {
-  try {
-    const r = await fetch('/api/live');
-    if (!r.ok) throw new Error(r.status);
-    const d = await r.json();
-
-    // Price
-    el('price-val').textContent = fmt(d.price, 2);
-
-    // Change pill
-    const pill  = el('change-pill');
-    const sign  = d.change >= 0 ? '+' : '';
-    const cls   = d.change > 0 ? 'up' : d.change < 0 ? 'down' : 'flat';
-    pill.className = `change-pill ${cls}`;
-    pill.textContent = `${sign}${fmt(d.change, 2)} (${sign}${fmt(d.change_pct, 2)}%)`;
-
-    // Meta
-    setVal('prev-close', d.prev_close != null ? `$${fmt(d.prev_close)}` : '–');
-    setVal('day-high',   d.day_high   != null ? `$${fmt(d.day_high)}`  : '–');
-    setVal('day-low',    d.day_low    != null ? `$${fmt(d.day_low)}`   : '–');
-    setVal('volume',     fmtVol(d.volume));
-    setVal('mktcap',     fmtLarge(d.market_cap));
-
-    el('last-update').textContent =
-      'Zuletzt: ' + new Date(d.timestamp).toLocaleTimeString('de-DE');
-
-  } catch(e) {
-    console.error('Live-Preis Fehler:', e);
-    el('price-val').textContent = 'N/A';
+function switchTab(tab) {
+  document.querySelectorAll('.tab-btn').forEach((b,i) =>
+    b.classList.toggle('active', (i===0 && tab==='pe') || (i===1 && tab==='price')));
+  el('tab-pe').classList.toggle('active', tab === 'pe');
+  el('tab-price').classList.toggle('active', tab === 'price');
+  if (tab === 'price' && !priceLoaded) loadPriceChart();
+  if (tab === 'pe') {
+    setTimeout(() => { try { Plotly.Plots.resize(el('pe-chart')); } catch(e){} }, 50);
   }
 }
 
-// ── Load company info ──────────────────────────────────────────────────────
+// ── Live price ─────────────────────────────────────────────────────────────
+async function loadLive() {
+  try {
+    const d = await apiFetch('/api/live', 15000);
+    const p = d.price;
+    el('price').textContent = fmt(p);
+    const chg = d.change ?? 0, pct = d.change_pct ?? 0;
+    const up = chg >= 0;
+    el('price-change').textContent = `${up?'+':''}${fmt(chg)} (${up?'+':''}${fmt(pct)}%)`;
+    el('price-change').className   = `price-change ${Math.abs(chg)<0.001 ? 'flat' : up ? 'up' : 'down'}`;
+    if (d.prev_close) el('ps-open').textContent = `$${fmt(d.prev_close)}`;
+    if (d.day_high)   el('ps-high').textContent = `$${fmt(d.day_high)}`;
+    if (d.day_low)    el('ps-low').textContent  = `$${fmt(d.day_low)}`;
+    if (d.volume)     el('ps-vol').textContent  = fmtVol(d.volume);
+    if (d.market_cap) el('ps-mc').textContent   = fmtMC(d.market_cap);
+    const now = new Date();
+    el('last-update').textContent = `Zuletzt: ${now.toLocaleTimeString('de-DE',{hour:'2-digit',minute:'2-digit',second:'2-digit'})}`;
+    setStatus('live');
+  } catch(e) {
+    setStatus('error');
+  }
+}
+
+function fmtVol(v) {
+  if (v >= 1e6) return (v/1e6).toFixed(2) + 'M';
+  if (v >= 1e3) return (v/1e3).toFixed(1) + 'K';
+  return v.toString();
+}
+function fmtMC(v) {
+  if (v >= 1e12) return '$' + (v/1e12).toFixed(2) + 'T';
+  if (v >= 1e9)  return '$' + (v/1e9).toFixed(2)  + 'B';
+  if (v >= 1e6)  return '$' + (v/1e6).toFixed(1)  + 'M';
+  return '$' + v;
+}
+
+// ── Company info ───────────────────────────────────────────────────────────
 async function loadInfo() {
   try {
-    const r = await fetch('/api/info');
-    const d = await r.json();
+    const d = await apiFetch('/api/info', 20000);
+    if (d.name) el('company-name').textContent = d.name + (d.exchange ? ` · ${d.exchange}` : '');
+    if (d.market_cap_fmt && d.market_cap_fmt !== '-') el('ps-mc').textContent = d.market_cap_fmt;
 
-    const pe  = d.trailing_pe;
-    const fpe = d.forward_pe;
-    const eps = d.trailing_eps;
+    const pe  = d.trailing_pe,  fpe = d.forward_pe;
+    const eps = d.trailing_eps, peg = d.peg_ratio;
+    el('m-pe').textContent   = pe  != null ? fmt(pe, 1) + 'x' : '–';
+    el('m-fpe').textContent  = fpe != null ? fmt(fpe,1) + 'x' : '–';
+    el('m-eps').textContent  = eps != null ? '$' + fmt(eps, 2) : '–';
+    el('m-peg').textContent  = peg != null ? fmt(peg, 2)       : '–';
+    el('m-div').textContent  = d.dividend_yield != null ? (d.dividend_yield*100).toFixed(2)+'%' : '–';
+    el('m-beta').textContent = d.beta != null ? fmt(d.beta, 2) : '–';
 
-    setVal('m-pe',  pe  != null ? fmt(pe, 1)+'x'  : '–');
-    setVal('m-fpe', fpe != null ? fmt(fpe, 1)+'x' : '–');
-    setVal('m-eps', eps != null ? `$${fmt(eps, 2)}` : '–');
-    setVal('m-peg', d.peg_ratio != null ? fmt(d.peg_ratio, 2) : '–');
-    setVal('m-div', d.dividend_yield != null ? (d.dividend_yield*100).toFixed(2)+'%' : '–');
-    setVal('m-52h', d.fifty2_high != null ? `$${fmt(d.fifty2_high)}` : '–');
-    setVal('m-52l', d.fifty2_low  != null ? `$${fmt(d.fifty2_low)}`  : '–');
-    setVal('m-beta', d.beta != null ? fmt(d.beta, 2) : '–');
-    if (!el('mktcap').textContent || el('mktcap').textContent === '–')
-      setVal('mktcap', d.market_cap_fmt || '–');
-
+    const cur = (await apiFetch('/api/live', 5000).catch(() => null))?.price ?? null;
+    if (d.fifty2_high != null) {
+      el('m-52h').textContent = '$' + fmt(d.fifty2_high);
+      if (cur) el('m-52h-sub').textContent = `${((cur/d.fifty2_high-1)*100).toFixed(1)}% vom Hoch`;
+    }
+    if (d.fifty2_low != null) {
+      el('m-52l').textContent = '$' + fmt(d.fifty2_low);
+      if (cur) el('m-52l-sub').textContent = `+${((cur/d.fifty2_low-1)*100).toFixed(1)}% vom Tief`;
+    }
   } catch(e) {
-    console.error('Info Fehler:', e);
+    console.warn('Info Fehler:', e);
   }
 }
 
-// ── Load & render P/E chart ────────────────────────────────────────────────
+// ── PE Chart ───────────────────────────────────────────────────────────────
 async function loadPEChart() {
   try {
-    const r = await fetch('/api/pe');
-    if (!r.ok) throw new Error(r.status);
-    const d = await r.json();
+    const d = await apiFetch('/api/pe', 55000);
     peData = d;
+    if (!d.pe_history || d.pe_history.length === 0) {
+      el('pe-chart').innerHTML = `<div class="error-box">Keine historischen KGV-Daten verfügbar.<br><small>Ticker: ${currentTicker}</small></div>`;
+      return;
+    }
     renderPEChart(d);
-    updateStatsBar(d.stats);
+    updateStats(d);
     updateValBadge(d);
-    if (d.eps_source)
-      el('footer-source').textContent = `KGV-Quelle: yfinance (${d.eps_source})`;
   } catch(e) {
-    console.error('PE Fehler:', e);
-    el('pe-chart').innerHTML =
-      '<div class="error-msg">⚠ KGV-Daten konnten nicht geladen werden. Bitte Seite neu laden.</div>';
+    const msg = e.name === 'AbortError'
+      ? 'Zeitüberschreitung (Server zu langsam). Bitte neu laden.'
+      : 'KGV-Daten nicht verfügbar.';
+    el('pe-chart').innerHTML = `<div class="error-box">⚠ ${msg}<br><button class="retry-btn" onclick="retryPE()">Neu laden</button></div>`;
   }
+}
+
+function retryPE() {
+  el('pe-chart').innerHTML = `<div class="loading-box"><div class="spinner"></div><span>Berechne historisches KGV…</span></div>`;
+  loadPEChart();
+}
+
+function updateStats(d) {
+  const s = d.stats;
+  if (!s || !s.p10) return;
+  el('stats-bar').style.display = 'flex';
+  el('s-p10').textContent = s.p10  + 'x';
+  el('s-p25').textContent = s.p25  + 'x';
+  el('s-med').textContent = s.median + 'x';
+  el('s-p75').textContent = s.p75  + 'x';
+  el('s-p90').textContent = s.p90  + 'x';
+  el('s-cur').textContent = d.current_pe ? d.current_pe + 'x' : '–';
+}
+
+function updateValBadge(d) {
+  if (!d.val_label || d.val_label === '–') return;
+  el('val-badge').style.display = 'inline-flex';
+  el('val-dot').style.background = d.val_color;
+  el('val-label').textContent = d.val_label + (d.current_pe ? ` · KGV ${d.current_pe}x` : '');
+  el('val-badge').style.background = d.val_color + '18';
+  el('val-badge').style.color = d.val_color;
 }
 
 function renderPEChart(d) {
-  const rows = d.pe_history;
-  if (!rows || rows.length === 0) {
-    el('pe-chart').innerHTML = '<div class="error-msg">Keine historischen KGV-Daten verfügbar.</div>';
-    return;
-  }
-
-  const s   = d.stats;
-  const cur = d.current_pe;
-
+  const rows   = d.pe_history;
+  const s      = d.stats;
+  const cur    = d.current_pe;
   const dates  = rows.map(r => r.date);
   const peVals = rows.map(r => r.pe);
   const prices = rows.map(r => r.price);
   const epss   = rows.map(r => r.ttm_eps);
 
-  // Y-axis range
-  const yMin = Math.max(0, Math.min(...peVals, cur || 999) * 0.85);
-  const yMax = Math.max(...peVals, cur || 0) * 1.18;
+  const yMin = Math.max(0, (Math.min(...peVals) * 0.85));
+  const yMax = Math.max(...peVals, cur || 0) * 1.15;
 
-  // ── Background zone shapes ──────────────────────────────────────────────
   const shapes = [];
+  if (s.p25 > 0) shapes.push({ type:'rect', xref:'paper', yref:'y', x0:0, x1:1, y0:yMin, y1:s.p25, fillcolor:'rgba(21,128,61,0.08)', line:{width:0}, layer:'below' });
+  shapes.push({ type:'rect', xref:'paper', yref:'y', x0:0, x1:1, y0:s.p25, y1:s.p75, fillcolor:'rgba(202,138,4,0.07)', line:{width:0}, layer:'below' });
+  shapes.push({ type:'rect', xref:'paper', yref:'y', x0:0, x1:1, y0:s.p75, y1:yMax, fillcolor:'rgba(185,28,28,0.07)', line:{width:0}, layer:'below' });
 
-  // Cheap zone (below P25)
-  if (s.p25 > s.min) {
-    shapes.push({
-      type:'rect', xref:'paper', yref:'y',
-      x0:0, x1:1, y0:yMin, y1:s.p25,
-      fillcolor:'rgba(34,197,94,0.12)', line:{width:0},
-      layer:'below'
-    });
+  [{y:s.p25,c:'rgba(21,128,61,.4)',d:'dot'},{y:s.median,c:'rgba(202,138,4,.5)',d:'dash'},{y:s.p75,c:'rgba(185,28,28,.4)',d:'dot'}].forEach(l =>
+    shapes.push({type:'line',xref:'paper',yref:'y',x0:0,x1:1,y0:l.y,y1:l.y,line:{color:l.c,width:1.5,dash:l.d},layer:'above'})
+  );
+  if (cur) shapes.push({type:'line',xref:'paper',yref:'y',x0:0,x1:1,y0:cur,y1:cur,line:{color:'rgba(15,23,42,.7)',width:2,dash:'dashdot'},layer:'above'});
+
+  const mobile = window.innerWidth < 640;
+
+  const annotations = [];
+  if (!mobile) {
+    [{x:1.01,y:s.p25,   t:`P25 = ${s.p25}x`,   c:'rgba(21,128,61,.7)'},
+     {x:1.01,y:s.median,t:`Median = ${s.median}x`,c:'rgba(202,138,4,.8)'},
+     {x:1.01,y:s.p75,   t:`P75 = ${s.p75}x`,   c:'rgba(185,28,28,.7)'},
+    ].forEach(a => annotations.push({xref:'paper',yref:'y',x:a.x,y:a.y,text:a.t,showarrow:false,font:{color:a.c,size:10},xanchor:'left'}));
+    if (cur) annotations.push({xref:'paper',yref:'y',x:1.01,y:cur,text:`<b>${cur}x</b>`,showarrow:false,font:{color:'rgba(15,23,42,.8)',size:11},xanchor:'left'});
   }
 
-  // Fair value zone (P25 – P75)
-  shapes.push({
-    type:'rect', xref:'paper', yref:'y',
-    x0:0, x1:1, y0:s.p25, y1:s.p75,
-    fillcolor:'rgba(234,179,8,0.08)', line:{width:0},
-    layer:'below'
-  });
-
-  // Expensive zone (above P75)
-  shapes.push({
-    type:'rect', xref:'paper', yref:'y',
-    x0:0, x1:1, y0:s.p75, y1:yMax,
-    fillcolor:'rgba(239,68,68,0.12)', line:{width:0},
-    layer:'below'
-  });
-
-  // Percentile reference lines
-  const refLines = [
-    { y: s.p25,    color:'rgba(34,197,94,0.5)',  dash:'dot',   label:`P25 = ${s.p25}x` },
-    { y: s.median, color:'rgba(234,179,8,0.6)',   dash:'dash',  label:`Median = ${s.median}x` },
-    { y: s.p75,    color:'rgba(239,68,68,0.5)',   dash:'dot',   label:`P75 = ${s.p75}x` },
-  ];
-  refLines.forEach(l => {
-    shapes.push({
-      type:'line', xref:'paper', yref:'y',
-      x0:0, x1:1, y0:l.y, y1:l.y,
-      line:{color:l.color, width:1.5, dash:l.dash},
-      layer:'above'
-    });
-  });
-
-  // Current P/E line
-  if (cur) {
-    shapes.push({
-      type:'line', xref:'paper', yref:'y',
-      x0:0, x1:1, y0:cur, y1:cur,
-      line:{color:'rgba(255,255,255,0.9)', width:2.5, dash:'dashdot'},
-      layer:'above'
-    });
-  }
-
-  // ── Annotations ─────────────────────────────────────────────────────────
-  const annotations = [
-    { xref:'paper', yref:'y', x:0.01, y:(yMin+s.p25)/2,
-      text:'<b>Günstig</b>', showarrow:false,
-      font:{color:'rgba(34,197,94,0.7)', size:11}, xanchor:'left' },
-    { xref:'paper', yref:'y', x:0.01, y:(s.p25+s.p75)/2,
-      text:'<b>Fair Value-Korridor</b>', showarrow:false,
-      font:{color:'rgba(234,179,8,0.7)', size:11}, xanchor:'left' },
-    { xref:'paper', yref:'y', x:0.01, y:(s.p75+yMax)/2,
-      text:'<b>Teuer</b>', showarrow:false,
-      font:{color:'rgba(239,68,68,0.7)', size:11}, xanchor:'left' },
-  ];
-
-  // Label for percentile lines on right
-  refLines.forEach(l => {
-    annotations.push({
-      xref:'paper', yref:'y', x:1.01, y:l.y,
-      text:l.label, showarrow:false,
-      font:{color:l.color, size:10}, xanchor:'left'
-    });
-  });
-
-  if (cur) {
-    annotations.push({
-      xref:'paper', yref:'y', x:1.01, y:cur,
-      text:`<b>Aktuell: ${cur}x</b>`, showarrow:false,
-      font:{color:'rgba(255,255,255,0.9)', size:11}, xanchor:'left'
-    });
-  }
-
-  // ── Traces ──────────────────────────────────────────────────────────────
-  // Main line – no markers for performance with 500+ points
   const traces = [
     {
-      x: dates, y: peVals,
+      x:dates, y:peVals,
       type:'scatter', mode:'lines',
       name:'KGV',
-      line:{color:'#60a5fa', width:2},
+      line:{color:'#1d4ed8', width:2},
       customdata: prices.map((p,i) => [p, epss[i]]),
-      hovertemplate:
-        '<b>%{x}</b><br>' +
-        'KGV: <b>%{y:.1f}x</b><br>' +
-        'Kurs: $%{customdata[0]:.2f}<br>' +
-        'TTM-EPS: $%{customdata[1]:.2f}' +
-        '<extra></extra>',
+      hovertemplate:'<b>%{x}</b><br>KGV: <b>%{y:.1f}x</b><br>Kurs: $%{customdata[0]:.2f}<br>TTM-EPS: $%{customdata[1]:.2f}<extra></extra>',
     },
-    // Single marker for the latest data point
     {
-      x: [dates[dates.length-1]],
-      y: [peVals[peVals.length-1]],
+      x:[dates[dates.length-1]], y:[peVals[peVals.length-1]],
       type:'scatter', mode:'markers',
-      name:'Aktuell',
-      marker:{size:10, color:'#60a5fa', line:{color:'#fff', width:2}},
-      hovertemplate: '<b>Heute</b><br>KGV: <b>%{y:.1f}x</b><extra></extra>',
+      marker:{size:10, color:'#1d4ed8', line:{color:'#fff', width:2}},
+      hovertemplate:'<b>Aktuell: %{y:.1f}x</b><extra></extra>',
       showlegend:false,
     }
   ];
 
-  // ── Layout ──────────────────────────────────────────────────────────────
   const layout = {
-    paper_bgcolor:'#111827',
-    plot_bgcolor:'#111827',
-    font:{family:"'Inter','JetBrains Mono',sans-serif", color:'#94a3b8'},
+    paper_bgcolor:'#fff', plot_bgcolor:'#fafbff',
+    font:{family:'-apple-system,sans-serif', color:'#64748b', size:11},
     xaxis:{
-      color:'#475569', gridcolor:'#1e293b', linecolor:'#1e293b',
-      tickfont:{color:'#64748b'}, zeroline:false,
-      rangeslider:{visible:true, bgcolor:'#0a0f1e', thickness:0.04},
+      color:'#94a3b8', gridcolor:'#f1f5f9', linecolor:'#e2e8f0',
+      tickfont:{color:'#94a3b8', size:10}, zeroline:false,
+      rangeslider: mobile ? {visible:false} : {visible:true, bgcolor:'#f8fafc', thickness:0.04},
     },
     yaxis:{
-      color:'#475569', gridcolor:'#1e293b', linecolor:'#1e293b',
-      tickfont:{color:'#64748b'}, zeroline:false,
-      title:{text:'KGV (P/E Ratio)', font:{color:'#64748b', size:12}},
-      range:[yMin, yMax],
-      ticksuffix:'x',
+      color:'#94a3b8', gridcolor:'#f1f5f9', linecolor:'#e2e8f0',
+      tickfont:{color:'#94a3b8', size:10}, zeroline:false,
+      ticksuffix:'x', range:[yMin, yMax],
+      title:{text:'KGV (P/E)', font:{color:'#94a3b8', size:11}},
     },
-    shapes,
-    annotations,
-    margin:{l:60, r:130, t:20, b:60},
+    shapes, annotations,
+    margin: mobile ? {l:48,r:14,t:10,b:44} : {l:55,r:110,t:14,b:55},
     hovermode:'x unified',
-    hoverlabel:{bgcolor:'#1e293b', bordercolor:'#334155', font:{color:'#e2e8f0'}},
+    hoverlabel:{bgcolor:'#1e293b', bordercolor:'#334155', font:{color:'#f8fafc'}},
     showlegend:false,
     dragmode:'zoom',
   };
@@ -772,241 +819,123 @@ function renderPEChart(d) {
   try {
     Plotly.react('pe-chart', traces, layout, {
       responsive:true,
-      displayModeBar:true,
-      modeBarButtonsToRemove:['lasso2d','select2d','autoScale2d'],
+      displayModeBar: !mobile,
+      modeBarButtonsToRemove:['lasso2d','select2d'],
       displaylogo:false,
-      toImageButtonOptions:{filename:'kaspi_kgv', scale:2}
+      toImageButtonOptions:{filename:'kgv_chart', scale:2},
     });
   } catch(e) {
-    el('pe-chart').innerHTML = '<div class="error-msg">⚠ Diagramm konnte nicht gerendert werden.</div>';
-    console.error('Plotly error:', e);
+    el('pe-chart').innerHTML = `<div class="error-box">Chart-Fehler: ${e.message}</div>`;
   }
 }
 
-// ── Price history chart ────────────────────────────────────────────────────
+// ── Price Chart ────────────────────────────────────────────────────────────
 async function loadPriceChart() {
   priceLoaded = true;
-  el('price-chart').innerHTML = '<div class="loading"><div class="spinner"></div>Lade Kursdaten…</div>';
+  if (!el('price-chart').querySelector('.loading-box'))
+    el('price-chart').innerHTML = `<div class="loading-box"><div class="spinner"></div><span>Lade Kursdaten…</span></div>`;
   try {
-    const r = await fetch('/api/price-history');
-    const rows = await r.json();
-    if (!rows || rows.length === 0) throw new Error('no data');
+    const rows = await apiFetch('/api/price-history', 25000);
+    if (!rows || rows.length === 0) throw new Error('keine Daten');
     renderPriceChart(rows);
   } catch(e) {
-    el('price-chart').innerHTML = '<div class="error-msg">⚠ Kursdaten nicht verfügbar.</div>';
+    el('price-chart').innerHTML = `<div class="error-box">⚠ Kursdaten nicht verfügbar.</div>`;
   }
 }
 
 function renderPriceChart(rows) {
   const dates  = rows.map(r => r.date);
   const closes = rows.map(r => r.close);
-  const opens  = rows.map(r => r.open);
-  const highs  = rows.map(r => r.high);
-  const lows   = rows.map(r => r.low);
-  const vols   = rows.map(r => r.volume);
+  const first  = closes[0], last = closes[closes.length-1];
+  const up     = last >= first;
+  const lc     = up ? '#15803d' : '#b91c1c';
+  const fc     = up ? 'rgba(21,128,61,0.07)' : 'rgba(185,28,28,0.07)';
+  const mobile = window.innerWidth < 640;
 
-  const first = closes[0];
-  const last  = closes[closes.length - 1];
-  const lineColor = last >= first ? '#22c55e' : '#ef4444';
-  const fillColor = last >= first ? 'rgba(34,197,94,0.07)' : 'rgba(239,68,68,0.07)';
-
-  const traces = [
-    {
-      x:dates, y:closes,
-      type:'scatter', mode:'lines',
-      name:'Schlusskurs',
-      line:{color:lineColor, width:2},
-      fill:'tozeroy', fillcolor:fillColor,
-      hovertemplate:'<b>%{x}</b><br>Kurs: <b>$%{y:.2f}</b><extra></extra>',
-    }
-  ];
+  const traces = [{
+    x:dates, y:closes,
+    type:'scatter', mode:'lines',
+    line:{color:lc, width:2},
+    fill:'tozeroy', fillcolor:fc,
+    hovertemplate:'<b>%{x}</b><br>Kurs: <b>$%{y:.2f}</b><extra></extra>',
+  }];
 
   const layout = {
-    paper_bgcolor:'#111827', plot_bgcolor:'#111827',
-    font:{family:"'Inter',sans-serif", color:'#94a3b8'},
+    paper_bgcolor:'#fff', plot_bgcolor:'#fafbff',
+    font:{family:'-apple-system,sans-serif', color:'#64748b', size:11},
     xaxis:{
-      color:'#475569', gridcolor:'#1e293b', linecolor:'#1e293b',
-      tickfont:{color:'#64748b'}, zeroline:false,
-      rangeslider:{visible:true, bgcolor:'#0a0f1e', thickness:0.04},
-      rangeselector:{
-        bgcolor:'#1a2332', activecolor:'#1e40af',
-        font:{color:'#94a3b8'},
+      color:'#94a3b8', gridcolor:'#f1f5f9', linecolor:'#e2e8f0',
+      tickfont:{color:'#94a3b8', size:10}, zeroline:false,
+      rangeslider: mobile ? {visible:false} : {visible:true, bgcolor:'#f8fafc', thickness:0.04},
+      rangeselector: mobile ? {} : {
+        bgcolor:'#f8fafc', activecolor:'#dbeafe', font:{color:'#475569', size:11},
         buttons:[
-          {count:1,  label:'1M', step:'month', stepmode:'backward'},
-          {count:3,  label:'3M', step:'month', stepmode:'backward'},
-          {count:6,  label:'6M', step:'month', stepmode:'backward'},
-          {count:1,  label:'1J', step:'year',  stepmode:'backward'},
-          {step:'all', label:'Alles'},
-        ]
-      }
+          {count:1,label:'1M',step:'month',stepmode:'backward'},
+          {count:3,label:'3M',step:'month',stepmode:'backward'},
+          {count:6,label:'6M',step:'month',stepmode:'backward'},
+          {count:1,label:'1J',step:'year', stepmode:'backward'},
+          {step:'all',label:'Max'},
+        ],
+      },
     },
     yaxis:{
-      color:'#475569', gridcolor:'#1e293b', linecolor:'#1e293b',
-      tickfont:{color:'#64748b'}, zeroline:false,
-      title:{text:'Kurs (USD)', font:{color:'#64748b', size:12}},
-      tickprefix:'$',
+      color:'#94a3b8', gridcolor:'#f1f5f9', linecolor:'#e2e8f0',
+      tickfont:{color:'#94a3b8', size:10}, zeroline:false, tickprefix:'$',
     },
-    margin:{l:70, r:20, t:20, b:60},
+    margin: mobile ? {l:52,r:14,t:10,b:44} : {l:60,r:24,t:14,b:55},
     hovermode:'x unified',
-    hoverlabel:{bgcolor:'#1e293b', bordercolor:'#334155', font:{color:'#e2e8f0'}},
+    hoverlabel:{bgcolor:'#1e293b', bordercolor:'#334155', font:{color:'#f8fafc'}},
     showlegend:false,
   };
 
-  Plotly.react('price-chart', traces, layout, {
-    responsive:true,
-    displayModeBar:true,
-    modeBarButtonsToRemove:['lasso2d','select2d'],
-    displaylogo:false,
-  });
-}
-
-// ── Stats bar ──────────────────────────────────────────────────────────────
-function updateStatsBar(s) {
-  if (!s || !s.count) return;
-  el('stats-bar').style.display = 'flex';
-  setVal('s-min', s.min+'x');
-  setVal('s-p10', s.p10+'x');
-  setVal('s-p25', s.p25+'x');
-  setVal('s-med', s.median+'x');
-  setVal('s-avg', s.mean+'x');
-  setVal('s-p75', s.p75+'x');
-  setVal('s-p90', s.p90+'x');
-  setVal('s-max', s.max+'x');
-}
-
-// ── Valuation badge ────────────────────────────────────────────────────────
-function updateValBadge(d) {
-  if (!d.val_label || !d.current_pe) return;
-  const wrap  = el('val-badge-wrap');
-  const badge = el('val-badge');
-  const color = d.val_color;
-  wrap.style.display  = 'flex';
-  badge.style.color   = color;
-  badge.style.background = color.replace(')', ',0.1)').replace('rgb','rgba').replace('#', '');
-  // simpler:
-  badge.style.borderColor = color + '55';
-  setVal('val-label', d.val_label);
-  setVal('val-pe-display', `(KGV: ${d.current_pe}x)`);
-
-  // Color the P/E metric card
-  const peCard = el('m-pe');
-  if (peCard) peCard.style.color = color;
-}
-
-// ── Full refresh ───────────────────────────────────────────────────────────
-async function refreshAll() {
-  await Promise.all([loadLivePrice(), loadInfo()]);
-}
-
-async function refreshPE() {
-  await loadPEChart();
-}
-
-// ── Auto-refresh timer ─────────────────────────────────────────────────────
-function startAutoRefresh() {
-  clearInterval(refreshTimer);
-  refreshTimer = setInterval(loadLivePrice, 30_000);  // price every 30s
-  setInterval(loadInfo, 300_000);  // info every 5 min
-}
-
-// ── Bootstrap ─────────────────────────────────────────────────────────────
-(async () => {
-  await Promise.all([loadLivePrice(), loadInfo()]);
-  await loadPEChart();
-  startAutoRefresh();
-  initPWA();
-})();
-
-// ── PWA: Service Worker + Install Prompt ──────────────────────────────────
-let _deferredInstall = null;
-
-function initPWA() {
-  // Register service worker
-  if ('serviceWorker' in navigator) {
-    navigator.serviceWorker.register('/sw.js', { scope: '/' })
-      .then(reg => {
-        console.log('SW registered, scope:', reg.scope);
-        // Notify if new version available
-        reg.addEventListener('updatefound', () => {
-          const nw = reg.installing;
-          nw.addEventListener('statechange', () => {
-            if (nw.state === 'installed' && navigator.serviceWorker.controller) {
-              showUpdateToast();
-            }
-          });
-        });
-      })
-      .catch(e => console.warn('SW registration failed:', e));
+  try {
+    Plotly.react('price-chart', traces, layout, {
+      responsive:true,
+      displayModeBar: !mobile,
+      modeBarButtonsToRemove:['lasso2d','select2d'],
+      displaylogo:false,
+    });
+  } catch(e) {
+    el('price-chart').innerHTML = `<div class="error-box">Chart-Fehler.</div>`;
   }
+}
 
-  // Android/Desktop Chrome: capture install prompt
-  window.addEventListener('beforeinstallprompt', e => {
-    e.preventDefault();
-    _deferredInstall = e;
-    showInstallBanner('android');
-  });
+// ── Load all ───────────────────────────────────────────────────────────────
+async function loadAll() {
+  el('ticker-input').value = currentTicker;
+  el('footer-ticker').textContent = currentTicker;
+  setStatus('loading');
+  await Promise.allSettled([loadLive(), loadPEChart(), loadInfo()]);
+  liveTimer = setInterval(loadLive, 30000);
+  infoTimer = setInterval(loadInfo, 300000);
+}
 
-  // iOS Safari detection
-  const isIOS     = /iphone|ipad|ipod/i.test(navigator.userAgent);
-  const isInApp   = window.navigator.standalone === true;
-  const isSafari  = /safari/i.test(navigator.userAgent) && !/chrome/i.test(navigator.userAgent);
-  if (isIOS && !isInApp && isSafari) {
-    showInstallBanner('ios');
+// ── PWA install ────────────────────────────────────────────────────────────
+let deferredPrompt = null;
+window.addEventListener('beforeinstallprompt', e => {
+  e.preventDefault();
+  deferredPrompt = e;
+  el('install-banner').classList.add('visible');
+});
+function doInstall() {
+  if (deferredPrompt) {
+    deferredPrompt.prompt();
+    deferredPrompt.userChoice.then(() => {
+      deferredPrompt = null;
+      el('install-banner').classList.remove('visible');
+    });
   }
-
-  // Already installed
-  window.addEventListener('appinstalled', () => {
-    hideBanner();
-    console.log('PWA installed');
-  });
 }
 
-function showInstallBanner(platform) {
-  const banner  = el('install-banner');
-  const subText = el('install-sub');
-  const btnDo   = el('btn-install-do');
-  const iosTip  = el('ios-tip');
-
-  if (platform === 'ios') {
-    subText.textContent   = 'Tippe Teilen → "Zum Home-Bildschirm"';
-    iosTip.style.display  = 'block';
-    btnDo.style.display   = 'none';
-  } else {
-    subText.textContent   = 'Einmal installieren – kein Browser nötig';
-    btnDo.style.display   = 'inline-block';
-  }
-  banner.classList.add('visible');
+// ── Service Worker ─────────────────────────────────────────────────────────
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.register('/sw.js').catch(() => {});
 }
 
-async function doInstall() {
-  if (!_deferredInstall) return;
-  _deferredInstall.prompt();
-  const result = await _deferredInstall.userChoice;
-  console.log('Install result:', result.outcome);
-  _deferredInstall = null;
-  hideBanner();
-}
-
-function dismissBanner() {
-  hideBanner();
-  sessionStorage.setItem('installDismissed', '1');
-}
-
-function hideBanner() {
-  el('install-banner').classList.remove('visible');
-}
-
-function showUpdateToast() {
-  const t = document.createElement('div');
-  t.style.cssText = `position:fixed;bottom:20px;left:50%;transform:translateX(-50%);
-    background:#1e293b;border:1px solid #334155;color:#e2e8f0;padding:12px 20px;
-    border-radius:10px;font-size:13px;z-index:9999;display:flex;gap:12px;align-items:center;
-    box-shadow:0 4px 20px rgba(0,0,0,.5)`;
-  t.innerHTML = '<span>🔄 Update verfügbar</span>'
-    + '<button onclick="location.reload()" style="background:#3b82f6;color:#fff;border:none;'
-    + 'padding:5px 12px;border-radius:6px;cursor:pointer;font-size:12px">Neu laden</button>';
-  document.body.appendChild(t);
-}
+// ── Init ───────────────────────────────────────────────────────────────────
+const saved = localStorage.getItem('lastTicker');
+if (saved && /^[A-Z0-9.\-\^]{1,10}$/.test(saved)) currentTicker = saved;
+loadAll();
 </script>
 </body>
 </html>

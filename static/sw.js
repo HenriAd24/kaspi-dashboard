@@ -4,7 +4,7 @@
  *   HTML/static → Cache-first after first load
  */
 
-const CACHE   = "kaspi-v3";
+const CACHE   = "kaspi-v4";
 const API_RE  = /\/api\//;
 const PRECACHE = ["/"];
 
