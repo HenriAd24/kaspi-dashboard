@@ -29,6 +29,7 @@ TICKER_RE = re.compile(r'^[A-Z0-9.\-\^]{1,10}$')
 
 _cache: dict = {}
 _lock = threading.Lock()
+_refreshing: set = set()
 
 
 def cache_get(key: str, ttl: int):
@@ -39,9 +40,45 @@ def cache_get(key: str, ttl: int):
     return None
 
 
+def cache_get_stale(key: str, max_age: int = 86400):
+    """Return (data, is_stale) where is_stale=True means cache exists but past primary TTL.
+    max_age is the absolute maximum age in seconds (default 24h) before we discard."""
+    with _lock:
+        e = _cache.get(key)
+        if not e:
+            return None, False
+        age = time.time() - e["ts"]
+        if age <= max_age:
+            return e["data"], True   # exists but stale (caller checks primary TTL separately)
+        return None, False
+
+
 def cache_set(key: str, data):
     with _lock:
         _cache[key] = {"data": data, "ts": time.time()}
+
+
+def _bg_refresh(ticker: str, cache_key_suffix: str, fetch_fn):
+    """Run fetch_fn in a background thread and update cache. Prevents duplicate refreshes."""
+    cache_key = f"{ticker}:{cache_key_suffix}"
+    refresh_id = cache_key
+    with _lock:
+        if refresh_id in _refreshing:
+            return
+        _refreshing.add(refresh_id)
+    def _run():
+        try:
+            log.info("[%s] Background refresh: %s", ticker, cache_key_suffix)
+            data = fetch_fn(ticker)
+            if data:
+                cache_set(cache_key, data)
+                log.info("[%s] Background refresh done: %s", ticker, cache_key_suffix)
+        except Exception as e:
+            log.warning("[%s] Background refresh failed (%s): %s", ticker, cache_key_suffix, e)
+        finally:
+            with _lock:
+                _refreshing.discard(refresh_id)
+    threading.Thread(target=_run, daemon=True).start()
 
 
 def _clean_ticker(raw: str) -> str:
@@ -216,6 +253,63 @@ def fetch_company_info(ticker: str) -> dict:
         "shares_out":     info.get("sharesOutstanding") or fi_data.get("shares"),
         "timestamp":      datetime.now().isoformat(),
     }
+
+
+# ---------------------------------------------------------------------------
+# Earnings dates
+# ---------------------------------------------------------------------------
+
+def fetch_earnings_dates(ticker: str) -> dict:
+    t = yf.Ticker(ticker)
+    result = {
+        "next_date":    None,
+        "next_eps_est": None,
+        "last_date":    None,
+        "last_eps":     None,
+        "timestamp":    datetime.now().isoformat(),
+    }
+    try:
+        ed = t.earnings_dates
+        if ed is None or ed.empty:
+            return result
+
+        # earnings_dates index is datetime; normalize to date strings
+        now = datetime.now()
+        future_rows = []
+        past_rows   = []
+
+        for dt, row in ed.iterrows():
+            try:
+                dt_naive = dt.tz_localize(None) if hasattr(dt, 'tz_localize') and dt.tzinfo else (dt.tz_convert(None) if hasattr(dt, 'tz_convert') and dt.tzinfo else dt)
+            except Exception:
+                dt_naive = dt
+            dt_py = dt_naive.to_pydatetime() if hasattr(dt_naive, 'to_pydatetime') else dt_naive
+            date_str = str(dt_py)[:10]
+            eps_est = row.get("EPS Estimate")
+            eps_act = row.get("Reported EPS")
+            if dt_py > now:
+                future_rows.append((date_str, eps_est))
+            else:
+                past_rows.append((date_str, eps_act))
+
+        if future_rows:
+            future_rows.sort(key=lambda x: x[0])
+            next_d, next_e = future_rows[0]
+            result["next_date"] = next_d
+            if next_e is not None and not pd.isna(next_e):
+                result["next_eps_est"] = round(float(next_e), 2)
+
+        if past_rows:
+            past_rows.sort(key=lambda x: x[0], reverse=True)
+            last_d, last_e = past_rows[0]
+            result["last_date"] = last_d
+            if last_e is not None and not pd.isna(last_e):
+                result["last_eps"] = round(float(last_e), 2)
+
+    except Exception as e:
+        log.warning("[%s] earnings_dates: %s", ticker, e)
+
+    return result
 
 
 # ---------------------------------------------------------------------------
@@ -499,12 +593,20 @@ def manifest():
 def api_live():
     ticker = _get_ticker()
     key    = f"{ticker}:live"
-    data   = cache_get(key, 30)
-    if data is None:
-        data = fetch_live_price(ticker)
-        if data:
-            cache_set(key, data)
+    TTL    = 30
+    # Try fresh cache first
+    data = cache_get(key, TTL)
+    if data is not None:
+        return jsonify(data)
+    # Check stale (within 24h)
+    stale_data, has_stale = cache_get_stale(key, max_age=86400)
+    if has_stale and stale_data is not None:
+        _bg_refresh(ticker, "live", fetch_live_price)
+        return jsonify(stale_data)
+    # No cache at all — compute now
+    data = fetch_live_price(ticker)
     if data:
+        cache_set(key, data)
         return jsonify(data)
     return jsonify({"error": "Daten nicht verfügbar"}), 503
 
@@ -513,11 +615,17 @@ def api_live():
 def api_info():
     ticker = _get_ticker()
     key    = f"{ticker}:info"
-    data   = cache_get(key, 3600)
-    if data is None:
-        data = fetch_company_info(ticker)
-        if data:
-            cache_set(key, data)
+    TTL    = 3600
+    data = cache_get(key, TTL)
+    if data is not None:
+        return jsonify(data)
+    stale_data, has_stale = cache_get_stale(key, max_age=86400)
+    if has_stale and stale_data is not None:
+        _bg_refresh(ticker, "info", fetch_company_info)
+        return jsonify(stale_data)
+    data = fetch_company_info(ticker)
+    if data:
+        cache_set(key, data)
     return jsonify(data or {"error": "Info nicht verfügbar"})
 
 
@@ -525,13 +633,18 @@ def api_info():
 def api_pe():
     ticker = _get_ticker()
     key    = f"{ticker}:pe"
-    data   = cache_get(key, 3600)
-    if data is None:
-        log.info("[%s] Computing historical P/E ...", ticker)
-        data = fetch_historical_pe(ticker)
-        if data:
-            cache_set(key, data)
+    TTL    = 3600
+    data = cache_get(key, TTL)
+    if data is not None:
+        return jsonify(data)
+    stale_data, has_stale = cache_get_stale(key, max_age=86400)
+    if has_stale and stale_data is not None:
+        _bg_refresh(ticker, "pe", fetch_historical_pe)
+        return jsonify(stale_data)
+    log.info("[%s] Computing historical P/E ...", ticker)
+    data = fetch_historical_pe(ticker)
     if data:
+        cache_set(key, data)
         return jsonify(data)
     return jsonify({"error": "KGV-Daten nicht verfügbar"}), 503
 
@@ -540,17 +653,42 @@ def api_pe():
 def api_price_history():
     ticker = _get_ticker()
     key    = f"{ticker}:ph"
-    data   = cache_get(key, 3600)
-    if data is None:
-        data = fetch_price_history(ticker)
-        if data:
-            cache_set(key, data)
+    TTL    = 3600
+    data = cache_get(key, TTL)
+    if data is not None:
+        return jsonify(data)
+    stale_data, has_stale = cache_get_stale(key, max_age=86400)
+    if has_stale and stale_data is not None:
+        _bg_refresh(ticker, "ph", fetch_price_history)
+        return jsonify(stale_data)
+    data = fetch_price_history(ticker)
+    if data:
+        cache_set(key, data)
     return jsonify(data or [])
+
+
+@app.route("/api/earnings")
+def api_earnings():
+    ticker = _get_ticker()
+    key    = f"{ticker}:earnings"
+    TTL    = 3600
+    data = cache_get(key, TTL)
+    if data is not None:
+        return jsonify(data)
+    stale_data, has_stale = cache_get_stale(key, max_age=86400)
+    if has_stale and stale_data is not None:
+        _bg_refresh(ticker, "earnings", fetch_earnings_dates)
+        return jsonify(stale_data)
+    data = fetch_earnings_dates(ticker)
+    if data:
+        cache_set(key, data)
+    return jsonify(data or {"error": "Earnings-Daten nicht verfügbar"})
 
 
 @app.route("/api/health")
 def api_health():
     return jsonify({"status": "ok", "cached": list(_cache.keys()),
+                    "refreshing": list(_refreshing),
                     "time": datetime.now().isoformat()})
 
 
@@ -565,6 +703,7 @@ def _warmup():
     d = fetch_live_price(t);      d and cache_set(f"{t}:live", d)
     d = fetch_historical_pe(t);   d and cache_set(f"{t}:pe", d)
     d = fetch_company_info(t);    d and cache_set(f"{t}:info", d)
+    d = fetch_earnings_dates(t);  d and cache_set(f"{t}:earnings", d)
     log.info("Warmup done: %s", t)
 
 

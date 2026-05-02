@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="de">
+<html lang="de" data-theme="light">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
@@ -15,7 +15,9 @@
 <style>
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
-:root {
+/* ── Light theme (default) ──────────────────────────────────────────── */
+:root,
+[data-theme="light"] {
   --bg:        #f1f5f9;
   --surface:   #ffffff;
   --surface2:  #f8fafc;
@@ -35,6 +37,49 @@
   --shadow-sm: 0 1px 3px rgba(0,0,0,0.07);
   --radius:    14px;
   --radius-sm: 9px;
+  --chart-bg:  #ffffff;
+  --chart-plot-bg: #fafbff;
+  --chart-grid: #f1f5f9;
+  --chart-line: #e2e8f0;
+  --chart-tick: #94a3b8;
+  --chart-text: #64748b;
+  --chart-hover-bg: #1e293b;
+  --chart-hover-border: #334155;
+  --chart-hover-text: #f8fafc;
+  --chart-cur-line: rgba(15,23,42,.7);
+  --chart-cur-ann: rgba(15,23,42,.8);
+}
+
+/* ── Dark theme ─────────────────────────────────────────────────────── */
+[data-theme="dark"] {
+  --bg:        #0f172a;
+  --surface:   #1e293b;
+  --surface2:  #162032;
+  --border:    #334155;
+  --text:      #f1f5f9;
+  --text2:     #cbd5e1;
+  --muted:     #94a3b8;
+  --primary:   #3b82f6;
+  --primary-h: #2563eb;
+  --primary-l: #1e3a5f;
+  --green:     #4ade80;
+  --green-bg:  #052e16;
+  --red:       #f87171;
+  --red-bg:    #450a0a;
+  --amber:     #fbbf24;
+  --shadow:    0 1px 4px rgba(0,0,0,0.3), 0 4px 16px rgba(0,0,0,0.25);
+  --shadow-sm: 0 1px 3px rgba(0,0,0,0.25);
+  --chart-bg:  #1e293b;
+  --chart-plot-bg: #162032;
+  --chart-grid: #1e293b;
+  --chart-line: #334155;
+  --chart-tick: #64748b;
+  --chart-text: #94a3b8;
+  --chart-hover-bg: #0f172a;
+  --chart-hover-border: #475569;
+  --chart-hover-text: #f1f5f9;
+  --chart-cur-line: rgba(241,245,249,.6);
+  --chart-cur-ann: rgba(241,245,249,.85);
 }
 
 body {
@@ -43,6 +88,7 @@ body {
   color: var(--text);
   min-height: 100dvh;
   -webkit-font-smoothing: antialiased;
+  transition: background .2s, color .2s;
 }
 
 /* ── Header ─────────────────────────────────────────────────────────── */
@@ -68,12 +114,14 @@ header {
 .logo { font-size: 22px; font-weight: 800; letter-spacing: -0.5px; white-space: nowrap; }
 .logo span { opacity: .7; font-weight: 400; font-size: 13px; margin-left: 6px; }
 
+/* ── Search with autocomplete ───────────────────────────────────────── */
 .search-row {
   display: flex;
   align-items: center;
   gap: 6px;
   flex: 1;
   max-width: 340px;
+  position: relative;
 }
 .search-input {
   flex: 1;
@@ -108,8 +156,40 @@ header {
 .search-btn:hover { background: rgba(255,255,255,0.3); }
 .search-btn:active { background: rgba(255,255,255,0.15); }
 
-.header-status {
+/* Autocomplete dropdown */
+#autocomplete-list {
+  position: absolute;
+  top: 42px;
+  left: 0;
+  right: 60px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  box-shadow: var(--shadow);
+  z-index: 200;
+  overflow: hidden;
+  display: none;
+}
+#autocomplete-list.visible { display: block; }
+.ac-item {
+  padding: 9px 14px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text);
+  cursor: pointer;
+  letter-spacing: 0.3px;
+  transition: background .1s;
+}
+.ac-item:hover, .ac-item.active { background: var(--primary-l); color: var(--primary); }
+
+/* ── Header right controls ──────────────────────────────────────────── */
+.header-controls {
   margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.header-status {
   display: flex;
   align-items: center;
   gap: 7px;
@@ -121,6 +201,84 @@ header {
 .status-dot.loading { background: #fbbf24; animation: pulse 1s infinite; }
 .status-dot.error   { background: #f87171; }
 @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.4} }
+
+/* Dark mode toggle */
+.theme-btn {
+  width: 32px;
+  height: 32px;
+  border: none;
+  border-radius: 8px;
+  background: rgba(255,255,255,0.15);
+  color: #fff;
+  font-size: 16px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background .15s;
+  flex-shrink: 0;
+}
+.theme-btn:hover { background: rgba(255,255,255,0.25); }
+
+/* ── Watchlist bar ──────────────────────────────────────────────────── */
+#watchlist-bar {
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+  padding: 0 16px;
+  position: sticky;
+  top: 56px;
+  z-index: 99;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+}
+.watchlist-inner {
+  max-width: 1320px;
+  margin: 0 auto;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+  padding: 8px 0;
+}
+.watchlist-inner::-webkit-scrollbar { display: none; }
+.wl-chip {
+  flex-shrink: 0;
+  height: 30px;
+  padding: 0 12px;
+  border-radius: 15px;
+  border: 1.5px solid var(--border);
+  background: var(--surface2);
+  color: var(--text2);
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+  white-space: nowrap;
+  letter-spacing: 0.3px;
+  transition: all .15s;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+.wl-chip:hover { border-color: var(--primary); color: var(--primary); background: var(--primary-l); }
+.wl-chip.active { background: var(--primary); color: #fff; border-color: var(--primary); }
+.wl-chip-add {
+  flex-shrink: 0;
+  height: 30px;
+  width: 30px;
+  border-radius: 15px;
+  border: 1.5px dashed var(--border);
+  background: transparent;
+  color: var(--muted);
+  font-size: 18px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all .15s;
+  line-height: 1;
+}
+.wl-chip-add:hover { border-color: var(--primary); color: var(--primary); }
 
 /* ── Layout ──────────────────────────────────────────────────────────── */
 main {
@@ -138,6 +296,7 @@ main {
   border-radius: var(--radius);
   box-shadow: var(--shadow);
   padding: 18px 20px;
+  transition: background .2s;
 }
 
 /* ── Price card ──────────────────────────────────────────────────────── */
@@ -147,13 +306,68 @@ main {
   flex-wrap: wrap;
   gap: 16px 28px;
 }
-.price-main { display: flex; align-items: baseline; gap: 14px; flex-wrap: wrap; }
+.price-left { flex: 1; min-width: 0; }
+.price-card-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 2px;
+}
 .company-name {
   font-size: 13px;
   color: var(--muted);
   font-weight: 500;
-  margin-bottom: 2px;
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
+/* Star (watchlist) button */
+.star-btn {
+  background: none;
+  border: none;
+  font-size: 18px;
+  cursor: pointer;
+  color: var(--muted);
+  line-height: 1;
+  padding: 2px 4px;
+  transition: color .15s, transform .15s;
+  flex-shrink: 0;
+}
+.star-btn:hover { transform: scale(1.2); }
+.star-btn.starred { color: #f59e0b; }
+/* Share button */
+.share-btn {
+  position: relative;
+  background: none;
+  border: none;
+  font-size: 15px;
+  cursor: pointer;
+  color: var(--muted);
+  padding: 2px 4px;
+  transition: color .15s;
+  flex-shrink: 0;
+}
+.share-btn:hover { color: var(--primary); }
+.share-tooltip {
+  position: absolute;
+  bottom: calc(100% + 6px);
+  left: 50%;
+  transform: translateX(-50%);
+  background: var(--text);
+  color: var(--bg);
+  font-size: 11px;
+  font-weight: 600;
+  padding: 4px 8px;
+  border-radius: 5px;
+  white-space: nowrap;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity .2s;
+}
+.share-tooltip.show { opacity: 1; }
+.price-main { display: flex; align-items: baseline; gap: 14px; flex-wrap: wrap; }
 .price-value {
   font-size: 48px;
   font-weight: 800;
@@ -201,6 +415,7 @@ main {
 }
 .chart-title { font-size: 15px; font-weight: 700; color: var(--text); }
 .chart-subtitle { font-size: 12px; color: var(--muted); margin-top: 2px; }
+#earnings-info { font-size: 12px; color: var(--primary); margin-top: 3px; font-weight: 600; }
 
 #pe-chart {
   width: 100%;
@@ -266,6 +481,7 @@ main {
   flex-direction: column;
   gap: 5px;
   border: 1px solid var(--border);
+  transition: background .2s;
 }
 .metric-label {
   font-size: 10px;
@@ -282,6 +498,59 @@ main {
   line-height: 1.1;
 }
 .metric-sub { font-size: 11px; color: var(--muted); }
+
+/* ── 52W visual bar card ─────────────────────────────────────────────── */
+.metric-card-wide {
+  grid-column: span 2;
+}
+.w52-bar-wrap {
+  margin-top: 6px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.w52-label-low, .w52-label-high {
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--muted);
+  white-space: nowrap;
+  min-width: 52px;
+}
+.w52-label-high { text-align: right; }
+.w52-track {
+  flex: 1;
+  height: 6px;
+  background: var(--border);
+  border-radius: 3px;
+  position: relative;
+}
+.w52-fill {
+  position: absolute;
+  left: 0;
+  top: 0;
+  height: 100%;
+  background: linear-gradient(90deg, #16a34a, #ca8a04, #dc2626);
+  border-radius: 3px;
+  transition: width .4s;
+}
+.w52-dot {
+  position: absolute;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: var(--primary);
+  border: 2px solid var(--surface);
+  box-shadow: 0 0 0 2px var(--primary);
+  transition: left .4s;
+}
+.w52-pct {
+  font-size: 11px;
+  color: var(--muted);
+  text-align: center;
+  margin-top: 4px;
+}
 
 /* ── Loading / error ─────────────────────────────────────────────────── */
 .loading-box {
@@ -367,15 +636,18 @@ footer {
 /* ── Responsive ──────────────────────────────────────────────────────── */
 @media (min-width: 480px) {
   .metrics-grid { grid-template-columns: repeat(3, 1fr); }
+  .metric-card-wide { grid-column: span 3; }
 }
 @media (min-width: 768px) {
   main { padding: 20px 24px; gap: 16px; }
   .metrics-grid { grid-template-columns: repeat(4, 1fr); }
+  .metric-card-wide { grid-column: span 4; }
   #pe-chart, #price-chart { height: 440px; }
   .price-value { font-size: 56px; }
 }
 @media (min-width: 1024px) {
   .metrics-grid { grid-template-columns: repeat(4, 1fr); }
+  .metric-card-wide { grid-column: span 4; }
 }
 @media (max-width: 479px) {
   .price-value { font-size: 40px; }
@@ -384,6 +656,7 @@ footer {
   #pe-chart, #price-chart { height: 320px; }
   .search-row { max-width: 100%; }
   .header-inner { height: auto; }
+  .metric-card-wide { grid-column: span 2; }
 }
 </style>
 </head>
@@ -403,20 +676,38 @@ footer {
              placeholder="Ticker, z.B. AAPL" maxlength="10"
              autocomplete="off" autocorrect="off" spellcheck="false">
       <button class="search-btn" onclick="searchTicker()">Suchen</button>
+      <div id="autocomplete-list"></div>
     </div>
-    <div class="header-status">
-      <div id="status-dot" class="status-dot loading"></div>
-      <span id="status-text">Laden…</span>
+    <div class="header-controls">
+      <button class="theme-btn" id="theme-btn" onclick="toggleTheme()" title="Dark/Light Mode">🌙</button>
+      <div class="header-status">
+        <div id="status-dot" class="status-dot loading"></div>
+        <span id="status-text">Laden…</span>
+      </div>
     </div>
   </div>
 </header>
+
+<!-- Watchlist bar -->
+<div id="watchlist-bar">
+  <div class="watchlist-inner" id="watchlist-inner">
+    <!-- chips rendered by JS -->
+  </div>
+</div>
 
 <main>
 
   <!-- Price card -->
   <div class="card price-card">
-    <div>
-      <div id="company-name" class="company-name">–</div>
+    <div class="price-left">
+      <div class="price-card-header">
+        <div id="company-name" class="company-name">–</div>
+        <button id="star-btn" class="star-btn" onclick="toggleWatchlist()" title="Zur Watchlist hinzufügen">☆</button>
+        <button class="share-btn" onclick="shareTicker(this)" title="Link kopieren">
+          🔗
+          <span class="share-tooltip" id="share-tooltip">Kopiert!</span>
+        </button>
+      </div>
       <div class="price-main">
         <div>
           <span class="price-currency">$</span><span id="price" class="price-value">–</span>
@@ -440,6 +731,7 @@ footer {
       <div>
         <div class="chart-title">KGV-Korridor (Historisch)</div>
         <div class="chart-subtitle">Zeigt ob die Aktie historisch günstig oder teuer bewertet ist</div>
+        <div id="earnings-info" style="display:none"></div>
       </div>
       <div id="val-badge" class="val-badge" style="display:none">
         <div id="val-dot" class="val-dot"></div>
@@ -482,15 +774,18 @@ footer {
       <div id="m-div" class="metric-value">–</div>
       <div class="metric-sub">Jährliche Ausschüttung</div>
     </div>
-    <div class="metric-card">
-      <div class="metric-label">52W Hoch</div>
-      <div id="m-52h" class="metric-value">–</div>
-      <div id="m-52h-sub" class="metric-sub">–</div>
-    </div>
-    <div class="metric-card">
-      <div class="metric-label">52W Tief</div>
-      <div id="m-52l" class="metric-value">–</div>
-      <div id="m-52l-sub" class="metric-sub">–</div>
+    <!-- 52W visual bar — spans 2 columns -->
+    <div class="metric-card metric-card-wide" id="card-52w">
+      <div class="metric-label">52-Wochen-Bereich</div>
+      <div class="w52-bar-wrap">
+        <div class="w52-label-low" id="w52-low">–</div>
+        <div class="w52-track">
+          <div class="w52-fill" id="w52-fill" style="width:0%"></div>
+          <div class="w52-dot"  id="w52-dot"  style="left:0%"></div>
+        </div>
+        <div class="w52-label-high" id="w52-high">–</div>
+      </div>
+      <div class="w52-pct" id="w52-pct"></div>
     </div>
     <div class="metric-card">
       <div class="metric-label">Beta</div>
@@ -514,10 +809,20 @@ footer {
 <script>
 'use strict';
 
+// ── Constants ──────────────────────────────────────────────────────────────
+const AUTOCOMPLETE_TICKERS = [
+  'KSPI','AAPL','MSFT','GOOGL','AMZN','NVDA','META','TSLA','BRK-B','JPM',
+  'V','WMT','NFLX','DIS','INTC','AMD','COIN','SHOP','UBER','NKE',
+  'MCD','SBUX','PFE','BA','GS','PYPL','SNAP','SPOT','BABA','TSM'
+];
+const MAX_WATCHLIST = 8;
+const GERMAN_MONTHS = ['Jan','Feb','Mär','Apr','Mai','Jun','Jul','Aug','Sep','Okt','Nov','Dez'];
+
 // ── State ──────────────────────────────────────────────────────────────────
 let currentTicker = '{{ default_ticker }}';
 let liveTimer = null, infoTimer = null;
 let peData = null;
+let isDark = false;
 
 // ── Helpers ────────────────────────────────────────────────────────────────
 const el = id => document.getElementById(id);
@@ -545,6 +850,208 @@ function setStatus(state) {
   text.textContent = state === 'live' ? 'Live-Daten' : state === 'loading' ? 'Laden…' : 'Fehler';
 }
 
+// ── Dark / Light mode ──────────────────────────────────────────────────────
+function applyTheme(dark) {
+  isDark = dark;
+  document.documentElement.setAttribute('data-theme', dark ? 'dark' : 'light');
+  el('theme-btn').textContent = dark ? '☀️' : '🌙';
+  localStorage.setItem('theme', dark ? 'dark' : 'light');
+  // Re-render chart with new colors if data is available
+  if (peData && peData.pe_history && peData.pe_history.length > 0) {
+    renderPEChart(peData);
+  }
+}
+
+function toggleTheme() {
+  applyTheme(!isDark);
+}
+
+// ── URL sharing ────────────────────────────────────────────────────────────
+function pushTickerUrl(ticker) {
+  const url = new URL(window.location.href);
+  url.searchParams.set('ticker', ticker);
+  history.pushState({ticker}, '', url.toString());
+}
+
+function shareTicker(btnEl) {
+  const url = new URL(window.location.href);
+  url.searchParams.set('ticker', currentTicker);
+  navigator.clipboard.writeText(url.toString()).then(() => {
+    const tooltip = el('share-tooltip');
+    tooltip.classList.add('show');
+    setTimeout(() => tooltip.classList.remove('show'), 1800);
+  }).catch(() => {
+    // Fallback: select the URL
+    prompt('Link kopieren:', url.toString());
+  });
+}
+
+// ── Watchlist ──────────────────────────────────────────────────────────────
+function getWatchlist() {
+  try {
+    return JSON.parse(localStorage.getItem('watchlist') || '[]');
+  } catch(e) { return []; }
+}
+
+function saveWatchlist(list) {
+  localStorage.setItem('watchlist', JSON.stringify(list));
+}
+
+function isInWatchlist(ticker) {
+  return getWatchlist().includes(ticker);
+}
+
+function updateStarBtn() {
+  const btn = el('star-btn');
+  if (isInWatchlist(currentTicker)) {
+    btn.textContent = '★';
+    btn.classList.add('starred');
+    btn.title = 'Von Watchlist entfernen';
+  } else {
+    btn.textContent = '☆';
+    btn.classList.remove('starred');
+    btn.title = 'Zur Watchlist hinzufügen';
+  }
+}
+
+function toggleWatchlist() {
+  let list = getWatchlist();
+  const idx = list.indexOf(currentTicker);
+  if (idx >= 0) {
+    list.splice(idx, 1);
+  } else {
+    if (list.length >= MAX_WATCHLIST) {
+      list.shift(); // remove oldest
+    }
+    list.push(currentTicker);
+  }
+  saveWatchlist(list);
+  updateStarBtn();
+  renderWatchlist();
+}
+
+function renderWatchlist() {
+  const container = el('watchlist-inner');
+  const list = getWatchlist();
+  container.innerHTML = '';
+
+  list.forEach(t => {
+    const chip = document.createElement('button');
+    chip.className = 'wl-chip' + (t === currentTicker ? ' active' : '');
+    chip.textContent = t;
+    chip.onclick = () => switchTicker(t);
+    container.appendChild(chip);
+  });
+
+  // "+" add chip
+  const addChip = document.createElement('button');
+  addChip.className = 'wl-chip-add';
+  addChip.textContent = '+';
+  addChip.title = 'Ticker hinzufügen';
+  addChip.onclick = () => {
+    const t = prompt('Ticker eingeben (z.B. AAPL):');
+    if (t) {
+      const cleaned = t.trim().toUpperCase().slice(0, 10);
+      if (/^[A-Z0-9.\-\^]{1,10}$/.test(cleaned)) {
+        let list = getWatchlist();
+        if (!list.includes(cleaned)) {
+          if (list.length >= MAX_WATCHLIST) list.shift();
+          list.push(cleaned);
+          saveWatchlist(list);
+        }
+        switchTicker(cleaned);
+      }
+    }
+  };
+  container.appendChild(addChip);
+}
+
+function switchTicker(ticker) {
+  if (ticker === currentTicker) return;
+  currentTicker = ticker;
+  localStorage.setItem('lastTicker', ticker);
+  el('footer-ticker').textContent = ticker;
+  pushTickerUrl(ticker);
+  updateStarBtn();
+  renderWatchlist();
+  resetAndLoad();
+}
+
+// ── Autocomplete ───────────────────────────────────────────────────────────
+let acActive = -1;
+
+function showAutocomplete(query) {
+  const list = el('autocomplete-list');
+  if (!query || query.length < 1) {
+    list.classList.remove('visible');
+    list.innerHTML = '';
+    return;
+  }
+  const q = query.toUpperCase();
+  const matches = AUTOCOMPLETE_TICKERS.filter(t => t.startsWith(q) || t.includes(q)).slice(0, 6);
+  if (matches.length === 0) {
+    list.classList.remove('visible');
+    list.innerHTML = '';
+    return;
+  }
+  list.innerHTML = matches.map((t, i) =>
+    `<div class="ac-item" data-ticker="${t}" onmousedown="selectAutocomplete('${t}')">${t}</div>`
+  ).join('');
+  list.classList.add('visible');
+  acActive = -1;
+}
+
+function selectAutocomplete(ticker) {
+  el('ticker-input').value = ticker;
+  el('autocomplete-list').classList.remove('visible');
+  el('autocomplete-list').innerHTML = '';
+  acActive = -1;
+  // trigger search
+  currentTicker = ticker;
+  localStorage.setItem('lastTicker', ticker);
+  el('footer-ticker').textContent = ticker;
+  pushTickerUrl(ticker);
+  updateStarBtn();
+  renderWatchlist();
+  resetAndLoad();
+}
+
+function hideAutocomplete() {
+  el('autocomplete-list').classList.remove('visible');
+  el('autocomplete-list').innerHTML = '';
+  acActive = -1;
+}
+
+el('ticker-input').addEventListener('input', function() {
+  showAutocomplete(this.value.trim());
+});
+
+el('ticker-input').addEventListener('keydown', function(e) {
+  const list = el('autocomplete-list');
+  const items = list.querySelectorAll('.ac-item');
+  if (e.key === 'ArrowDown') {
+    e.preventDefault();
+    acActive = Math.min(acActive + 1, items.length - 1);
+    items.forEach((it, i) => it.classList.toggle('active', i === acActive));
+  } else if (e.key === 'ArrowUp') {
+    e.preventDefault();
+    acActive = Math.max(acActive - 1, -1);
+    items.forEach((it, i) => it.classList.toggle('active', i === acActive));
+  } else if (e.key === 'Enter') {
+    if (acActive >= 0 && items[acActive]) {
+      selectAutocomplete(items[acActive].dataset.ticker);
+    } else {
+      searchTicker();
+    }
+  } else if (e.key === 'Escape') {
+    hideAutocomplete();
+  }
+});
+
+el('ticker-input').addEventListener('blur', function() {
+  setTimeout(hideAutocomplete, 150);
+});
+
 // ── Ticker search ──────────────────────────────────────────────────────────
 function searchTicker() {
   const raw = el('ticker-input').value.trim().toUpperCase();
@@ -554,13 +1061,15 @@ function searchTicker() {
     setTimeout(() => el('ticker-input').style.borderColor = '', 1000);
     return;
   }
+  hideAutocomplete();
   currentTicker = raw;
   localStorage.setItem('lastTicker', raw);
   el('footer-ticker').textContent = raw;
+  pushTickerUrl(raw);
+  updateStarBtn();
+  renderWatchlist();
   resetAndLoad();
 }
-
-el('ticker-input').addEventListener('keydown', e => { if (e.key === 'Enter') searchTicker(); });
 
 function resetAndLoad() {
   peData = null;
@@ -574,8 +1083,15 @@ function resetAndLoad() {
     el('ps-vol').textContent = el('ps-mc').textContent = '–';
   el('stats-bar').style.display = 'none';
   el('val-badge').style.display = 'none';
-  ['m-pe','m-fpe','m-eps','m-div','m-52h','m-52l','m-beta','m-peg',
-   'm-52h-sub','m-52l-sub'].forEach(id => el(id).textContent = '–');
+  el('earnings-info').style.display = 'none';
+  ['m-pe','m-fpe','m-eps','m-div','m-beta','m-peg'].forEach(id => {
+    const e = el(id); if (e) e.textContent = '–';
+  });
+  el('w52-low').textContent = '–';
+  el('w52-high').textContent = '–';
+  el('w52-fill').style.width = '0%';
+  el('w52-dot').style.left = '0%';
+  el('w52-pct').textContent = '';
 
   if (!localStorage.getItem(`pe_${currentTicker}`))
     el('pe-chart').innerHTML = `<div class="loading-box"><div class="spinner"></div><span>Berechne historisches KGV…</span></div>`;
@@ -619,6 +1135,19 @@ function fmtMC(v) {
   return '$' + v;
 }
 
+// ── 52W visual bar ─────────────────────────────────────────────────────────
+function update52WBar(low, high, cur) {
+  if (!low || !high || low >= high) return;
+  el('w52-low').textContent  = `$${fmt(low, 0)}`;
+  el('w52-high').textContent = `$${fmt(high, 0)}`;
+  const pct = Math.max(0, Math.min(100, ((cur - low) / (high - low)) * 100));
+  el('w52-fill').style.width = pct.toFixed(1) + '%';
+  el('w52-dot').style.left   = pct.toFixed(1) + '%';
+  const fromLow  = ((cur / low  - 1) * 100).toFixed(1);
+  const fromHigh = ((cur / high - 1) * 100).toFixed(1);
+  el('w52-pct').textContent = `Aktuell $${fmt(cur)} · +${fromLow}% vom Tief · ${fromHigh}% vom Hoch`;
+}
+
 // ── Company info ───────────────────────────────────────────────────────────
 async function loadInfo() {
   try {
@@ -635,17 +1164,44 @@ async function loadInfo() {
     el('m-div').textContent  = d.dividend_yield != null ? (d.dividend_yield*100).toFixed(2)+'%' : '–';
     el('m-beta').textContent = d.beta != null ? fmt(d.beta, 2) : '–';
 
-    const cur = (await apiFetch('/api/live', 5000).catch(() => null))?.price ?? null;
-    if (d.fifty2_high != null) {
-      el('m-52h').textContent = '$' + fmt(d.fifty2_high);
-      if (cur) el('m-52h-sub').textContent = `${((cur/d.fifty2_high-1)*100).toFixed(1)}% vom Hoch`;
-    }
-    if (d.fifty2_low != null) {
-      el('m-52l').textContent = '$' + fmt(d.fifty2_low);
-      if (cur) el('m-52l-sub').textContent = `+${((cur/d.fifty2_low-1)*100).toFixed(1)}% vom Tief`;
+    const liveData = await apiFetch('/api/live', 5000).catch(() => null);
+    const cur = liveData?.price ?? null;
+    if (d.fifty2_high != null && d.fifty2_low != null) {
+      update52WBar(d.fifty2_low, d.fifty2_high, cur ?? ((d.fifty2_low + d.fifty2_high) / 2));
     }
   } catch(e) {
     console.warn('Info Fehler:', e);
+  }
+}
+
+// ── Earnings dates ─────────────────────────────────────────────────────────
+function formatGermanDate(dateStr) {
+  if (!dateStr) return null;
+  const [y, m, d] = dateStr.split('-').map(Number);
+  return `${d}. ${GERMAN_MONTHS[m - 1]} ${y}`;
+}
+
+async function loadEarnings() {
+  try {
+    const d = await apiFetch('/api/earnings', 15000);
+    const infoEl = el('earnings-info');
+    if (d.next_date) {
+      const dateFormatted = formatGermanDate(d.next_date);
+      let text = `Nächste Quartalszahlen: ${dateFormatted}`;
+      if (d.next_eps_est != null) text += ` · EPS-Prognose: $${d.next_eps_est}`;
+      infoEl.textContent = text;
+      infoEl.style.display = 'block';
+    } else if (d.last_date) {
+      const dateFormatted = formatGermanDate(d.last_date);
+      let text = `Letzte Quartalszahlen: ${dateFormatted}`;
+      if (d.last_eps != null) text += ` · EPS: $${d.last_eps}`;
+      infoEl.textContent = text;
+      infoEl.style.display = 'block';
+    } else {
+      infoEl.style.display = 'none';
+    }
+  } catch(e) {
+    console.warn('Earnings Fehler:', e);
   }
 }
 
@@ -684,6 +1240,8 @@ async function loadPEChart() {
     }
     try { localStorage.setItem(lsKey(), JSON.stringify(d)); } catch(e) {}
     applyPEData(d);
+    // Load earnings after PE chart loaded
+    loadEarnings();
   } catch(e) {
     showLoadingBar(false);
     if (!peData) {
@@ -720,6 +1278,24 @@ function updateValBadge(d) {
   el('val-badge').style.color = d.val_color;
 }
 
+function getChartColors() {
+  // Read from CSS variables to respect current theme
+  const style = getComputedStyle(document.documentElement);
+  return {
+    bg:          style.getPropertyValue('--chart-bg').trim()          || '#ffffff',
+    plotBg:      style.getPropertyValue('--chart-plot-bg').trim()     || '#fafbff',
+    grid:        style.getPropertyValue('--chart-grid').trim()        || '#f1f5f9',
+    line:        style.getPropertyValue('--chart-line').trim()        || '#e2e8f0',
+    tick:        style.getPropertyValue('--chart-tick').trim()        || '#94a3b8',
+    text:        style.getPropertyValue('--chart-text').trim()        || '#64748b',
+    hoverBg:     style.getPropertyValue('--chart-hover-bg').trim()    || '#1e293b',
+    hoverBorder: style.getPropertyValue('--chart-hover-border').trim()|| '#334155',
+    hoverText:   style.getPropertyValue('--chart-hover-text').trim()  || '#f8fafc',
+    curLine:     style.getPropertyValue('--chart-cur-line').trim()    || 'rgba(15,23,42,.7)',
+    curAnn:      style.getPropertyValue('--chart-cur-ann').trim()     || 'rgba(15,23,42,.8)',
+  };
+}
+
 function renderPEChart(d) {
   const rows   = d.pe_history;
   const s      = d.stats;
@@ -732,6 +1308,8 @@ function renderPEChart(d) {
   const yMin = Math.max(0, (Math.min(...peVals) * 0.85));
   const yMax = Math.max(...peVals, cur || 0) * 1.15;
 
+  const c = getChartColors();
+
   const shapes = [];
   if (s.p25 > 0) shapes.push({ type:'rect', xref:'paper', yref:'y', x0:0, x1:1, y0:yMin, y1:s.p25, fillcolor:'rgba(21,128,61,0.08)', line:{width:0}, layer:'below' });
   shapes.push({ type:'rect', xref:'paper', yref:'y', x0:0, x1:1, y0:s.p25, y1:s.p75, fillcolor:'rgba(202,138,4,0.07)', line:{width:0}, layer:'below' });
@@ -740,7 +1318,7 @@ function renderPEChart(d) {
   [{y:s.p25,c:'rgba(21,128,61,.4)',d:'dot'},{y:s.median,c:'rgba(202,138,4,.5)',d:'dash'},{y:s.p75,c:'rgba(185,28,28,.4)',d:'dot'}].forEach(l =>
     shapes.push({type:'line',xref:'paper',yref:'y',x0:0,x1:1,y0:l.y,y1:l.y,line:{color:l.c,width:1.5,dash:l.d},layer:'above'})
   );
-  if (cur) shapes.push({type:'line',xref:'paper',yref:'y',x0:0,x1:1,y0:cur,y1:cur,line:{color:'rgba(15,23,42,.7)',width:2,dash:'dashdot'},layer:'above'});
+  if (cur) shapes.push({type:'line',xref:'paper',yref:'y',x0:0,x1:1,y0:cur,y1:cur,line:{color:c.curLine,width:2,dash:'dashdot'},layer:'above'});
 
   const mobile = window.innerWidth < 640;
 
@@ -750,7 +1328,7 @@ function renderPEChart(d) {
      {x:1.01,y:s.median,t:`Median = ${s.median}x`,c:'rgba(202,138,4,.8)'},
      {x:1.01,y:s.p75,   t:`P75 = ${s.p75}x`,   c:'rgba(185,28,28,.7)'},
     ].forEach(a => annotations.push({xref:'paper',yref:'y',x:a.x,y:a.y,text:a.t,showarrow:false,font:{color:a.c,size:10},xanchor:'left'}));
-    if (cur) annotations.push({xref:'paper',yref:'y',x:1.01,y:cur,text:`<b>${cur}x</b>`,showarrow:false,font:{color:'rgba(15,23,42,.8)',size:11},xanchor:'left'});
+    if (cur) annotations.push({xref:'paper',yref:'y',x:1.01,y:cur,text:`<b>${cur}x</b>`,showarrow:false,font:{color:c.curAnn,size:11},xanchor:'left'});
   }
 
   const traces = [
@@ -758,37 +1336,38 @@ function renderPEChart(d) {
       x:dates, y:peVals,
       type:'scatter', mode:'lines',
       name:'KGV',
-      line:{color:'#1d4ed8', width:2},
+      line:{color:'#3b82f6', width:2},
       customdata: prices.map((p,i) => [p, epss[i]]),
       hovertemplate:'<b>%{x}</b><br>KGV: <b>%{y:.1f}x</b><br>Kurs: $%{customdata[0]:.2f}<br>TTM-EPS: $%{customdata[1]:.2f}<extra></extra>',
     },
     {
       x:[dates[dates.length-1]], y:[peVals[peVals.length-1]],
       type:'scatter', mode:'markers',
-      marker:{size:10, color:'#1d4ed8', line:{color:'#fff', width:2}},
+      marker:{size:10, color:'#3b82f6', line:{color:c.bg, width:2}},
       hovertemplate:'<b>Aktuell: %{y:.1f}x</b><extra></extra>',
       showlegend:false,
     }
   ];
 
   const layout = {
-    paper_bgcolor:'#fff', plot_bgcolor:'#fafbff',
-    font:{family:'-apple-system,sans-serif', color:'#64748b', size:11},
+    paper_bgcolor: c.bg,
+    plot_bgcolor:  c.plotBg,
+    font:{family:'-apple-system,sans-serif', color:c.text, size:11},
     xaxis:{
-      color:'#94a3b8', gridcolor:'#f1f5f9', linecolor:'#e2e8f0',
-      tickfont:{color:'#94a3b8', size:10}, zeroline:false,
-      rangeslider: mobile ? {visible:false} : {visible:true, bgcolor:'#f8fafc', thickness:0.04},
+      color:c.tick, gridcolor:c.grid, linecolor:c.line,
+      tickfont:{color:c.tick, size:10}, zeroline:false,
+      rangeslider: mobile ? {visible:false} : {visible:true, bgcolor:c.plotBg, thickness:0.04},
     },
     yaxis:{
-      color:'#94a3b8', gridcolor:'#f1f5f9', linecolor:'#e2e8f0',
-      tickfont:{color:'#94a3b8', size:10}, zeroline:false,
+      color:c.tick, gridcolor:c.grid, linecolor:c.line,
+      tickfont:{color:c.tick, size:10}, zeroline:false,
       ticksuffix:'x', range:[yMin, yMax],
-      title:{text:'KGV (P/E)', font:{color:'#94a3b8', size:11}},
+      title:{text:'KGV (P/E)', font:{color:c.tick, size:11}},
     },
     shapes, annotations,
     margin: mobile ? {l:48,r:14,t:10,b:44} : {l:55,r:110,t:14,b:55},
     hovermode:'x unified',
-    hoverlabel:{bgcolor:'#1e293b', bordercolor:'#334155', font:{color:'#f8fafc'}},
+    hoverlabel:{bgcolor:c.hoverBg, bordercolor:c.hoverBorder, font:{color:c.hoverText}},
     showlegend:false,
     dragmode:'zoom',
   };
@@ -839,8 +1418,36 @@ if ('serviceWorker' in navigator) {
 }
 
 // ── Init ───────────────────────────────────────────────────────────────────
-const saved = localStorage.getItem('lastTicker');
-if (saved && /^[A-Z0-9.\-\^]{1,10}$/.test(saved)) currentTicker = saved;
+
+// Theme: restore from localStorage
+const savedTheme = localStorage.getItem('theme');
+applyTheme(savedTheme === 'dark');
+
+// Ticker priority: 1) URL param, 2) localStorage, 3) default
+const urlParams = new URLSearchParams(window.location.search);
+const urlTicker = urlParams.get('ticker');
+if (urlTicker && /^[A-Z0-9.\-\^]{1,10}$/i.test(urlTicker)) {
+  currentTicker = urlTicker.toUpperCase();
+} else {
+  const saved = localStorage.getItem('lastTicker');
+  if (saved && /^[A-Z0-9.\-\^]{1,10}$/.test(saved)) currentTicker = saved;
+}
+
+// Handle back/forward navigation
+window.addEventListener('popstate', (e) => {
+  const p = new URLSearchParams(window.location.search);
+  const t = p.get('ticker');
+  if (t && /^[A-Z0-9.\-\^]{1,10}$/i.test(t) && t.toUpperCase() !== currentTicker) {
+    currentTicker = t.toUpperCase();
+    localStorage.setItem('lastTicker', currentTicker);
+    updateStarBtn();
+    renderWatchlist();
+    resetAndLoad();
+  }
+});
+
+updateStarBtn();
+renderWatchlist();
 loadAll();
 </script>
 </body>
