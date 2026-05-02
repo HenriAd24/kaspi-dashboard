@@ -348,7 +348,7 @@ def fetch_historical_pe(ticker: str) -> dict | None:
             current_pe  = round(current_price / latest_eps, 2)
             current_eps = latest_eps
 
-    hist = yf.Ticker(ticker).history(period="max", interval="1d")
+    hist = yf.Ticker(ticker).history(period="5y", interval="1d")
     hist.index = _tz_strip(hist.index)
     hist = hist.sort_index()
     if hist.empty:
