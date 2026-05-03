@@ -208,7 +208,7 @@ def fetch_company_info(ticker: str) -> dict:
             if trailing_pe:
                 log.info("[%s] EPS/PE from PE cache: pe=%.2f", ticker, trailing_pe)
 
-    # Last resort: earnings_history
+    # Last resort: earnings_history with FX auto-detection
     if not trailing_eps:
         try:
             eh = t.earnings_history
@@ -218,15 +218,17 @@ def fetch_company_info(ticker: str) -> dict:
                     ttm   = sum(float(v) for v in vals)
                     price = fi_data.get("price", 0)
                     if price > 0 and ttm != 0:
-                        impl_pe = price / ttm
-                        if 2 < impl_pe < 200:
-                            trailing_eps = round(ttm, 2)  # already USD
+                        implied_pe = price / ttm
+                        if 0.5 <= implied_pe <= 500:
+                            trailing_eps = round(ttm, 2)
                         else:
-                            try:
-                                rate = float(yf.Ticker("USDKZT=X").fast_info.last_price)
-                                trailing_eps = round(ttm / rate, 2)
-                            except Exception:
-                                pass
+                            # EPS not in USD — try FX detection
+                            sorted_q = [(str(i), v) for i, v in enumerate(vals)]
+                            # Temporarily inject price into info for _detect_eps_fx_factor
+                            info_with_price = {**info, "regularMarketPrice": price}
+                            factor = _detect_eps_fx_factor(ticker, info_with_price, {"fi": None}, sorted_q)
+                            if factor != 1.0:
+                                trailing_eps = round(ttm * factor, 2)
         except Exception as e:
             log.warning("[%s] EPS earnings fallback: %s", ticker, e)
 
@@ -364,6 +366,59 @@ def _prefetch(ticker: str) -> dict:
     return result
 
 
+def _detect_eps_fx_factor(ticker: str, info: dict, data: dict, sorted_q: list) -> float:
+    """Detect currency conversion factor when trailingEps (USD anchor) is unavailable.
+    Returns factor to multiply raw EPS values to get USD EPS."""
+    if len(sorted_q) < 4:
+        return 1.0
+
+    fi = data.get("fi")
+    price = info.get("regularMarketPrice") or info.get("currentPrice")
+    if not price and fi:
+        try: price = float(fi.last_price)
+        except Exception: pass
+    if not price or price <= 0:
+        return 1.0
+
+    last4 = sum(v for _, v in sorted_q[-4:])
+    if last4 <= 0:
+        return 1.0
+
+    implied_pe = price / last4
+    if 0.5 <= implied_pe <= 500:
+        return 1.0  # Looks like USD already
+
+    log.info("[%s] implied PE=%.4fx — detecting FX conversion (price=%.2f, ttm_raw=%.2f)",
+             ticker, implied_pe, price, last4)
+
+    # Try USDKZT (covers KSPI and other KZT-denominated stocks)
+    try:
+        kzt_rate = float(yf.Ticker("USDKZT=X").fast_info.last_price)
+        if kzt_rate > 0:
+            test_pe = price / (last4 / kzt_rate)
+            if 2 < test_pe < 200:
+                log.info("[%s] KZT→USD confirmed: rate=%.1f, pe=%.1f", ticker, kzt_rate, test_pe)
+                return 1.0 / kzt_rate
+    except Exception as e:
+        log.warning("[%s] USDKZT lookup: %s", ticker, e)
+
+    # Try financialCurrency if partially available in info
+    fin_cur = info.get("financialCurrency", "")
+    if fin_cur and fin_cur != "USD":
+        try:
+            fx = float(yf.Ticker(f"USD{fin_cur}=X").fast_info.last_price)
+            if fx > 0:
+                test_pe = price / (last4 / fx)
+                if 2 < test_pe < 200:
+                    log.info("[%s] %s→USD: rate=%.4f, pe=%.1f", ticker, fin_cur, fx, test_pe)
+                    return 1.0 / fx
+        except Exception as e:
+            log.warning("[%s] FX %s: %s", ticker, fin_cur, e)
+
+    log.warning("[%s] FX detection failed, eps_factor=1.0 (data may be wrong)", ticker)
+    return 1.0
+
+
 def _build_eps_steps(ticker: str, info: dict, data: dict) -> list:
     trailing_eps_usd = info.get("trailingEps")
 
@@ -408,7 +463,11 @@ def _build_eps_steps(ticker: str, info: dict, data: dict) -> list:
         if last4 > 0 and trailing_eps_usd > 0:
             ratio = trailing_eps_usd / last4
             eps_factor = 1.0 if 0.5 < ratio < 2.0 else ratio
-            log.info("[%s] EPS factor=%.6f", ticker, eps_factor)
+            log.info("[%s] EPS factor=%.6f (trailingEps anchor)", ticker, eps_factor)
+    else:
+        # t.info unavailable — use price-based FX detection
+        eps_factor = _detect_eps_fx_factor(ticker, info, data, sorted_q)
+        log.info("[%s] EPS factor=%.6f (auto-detect)", ticker, eps_factor)
 
     # --- Build TTM steps ---
     steps: list[tuple[str, float]] = []
