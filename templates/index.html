@@ -688,7 +688,7 @@ footer {
     </div>
 
     <div id="chart-loading-bar" style="height:3px;background:linear-gradient(90deg,#1d4ed8 0%,#60a5fa 50%,#1d4ed8 100%);background-size:200%;animation:shimmer 1.2s infinite;display:none"></div>
-    <div id="pe-chart"><div class="loading-box"><div class="spinner"></div><span>Berechne historisches KGV…</span></div></div>
+    <div id="pe-chart"></div>
 
     <div class="stats-bar" id="stats-bar" style="display:none">
       <div class="stat-item"><div class="stat-label">P10</div><div id="s-p10" class="stat-value stat-p10">–</div></div>
@@ -1013,8 +1013,7 @@ function resetAndLoad() {
   el('val-scenarios').style.display = 'none';
   el('earnings-info').style.display = 'none';
 
-  if (!localStorage.getItem(`pe_${currentTicker}`))
-    el('pe-chart').innerHTML = `<div class="loading-box"><div class="spinner"></div><span>Berechne historisches KGV…</span></div>`;
+  if (!localStorage.getItem(`pe_${currentTicker}`)) _startPETimer();
 
   setStatus('loading');
   loadAll();
@@ -1160,40 +1159,75 @@ function updateValuation(d) {
   el('val-scenarios').style.display = 'block';
 }
 
+let _peTimerId = null;
+function _startPETimer() {
+  let secs = 0;
+  el('pe-chart').innerHTML =
+    `<div class="loading-box"><div class="spinner"></div>` +
+    `<span id="pe-msg">Verbinde mit Server…</span>` +
+    `<span id="pe-secs" style="font-size:11px;opacity:.55;margin-top:2px"></span></div>`;
+  if (_peTimerId) clearInterval(_peTimerId);
+  _peTimerId = setInterval(() => {
+    secs++;
+    const m = document.getElementById('pe-msg');
+    const s = document.getElementById('pe-secs');
+    if (!m) { clearInterval(_peTimerId); return; }
+    s.textContent = secs + 's';
+    if      (secs < 8)  m.textContent = 'Verbinde mit Server…';
+    else if (secs < 20) m.textContent = 'Server startet…';
+    else if (secs < 45) m.textContent = 'Lade Kursdaten…';
+    else                m.textContent = 'Berechne KGV-Korridor…';
+  }, 1000);
+}
+function _stopPETimer() {
+  if (_peTimerId) { clearInterval(_peTimerId); _peTimerId = null; }
+}
+
 async function loadPEChart() {
-  // Show cached chart immediately — no spinner needed
   const raw = localStorage.getItem(lsKey());
   if (raw) {
     try {
       applyPEData(JSON.parse(raw));
-      showLoadingBar(true); // thin bar while refreshing
+      showLoadingBar(true);
     } catch(e) { localStorage.removeItem(lsKey()); }
   }
+  if (!peData) _startPETimer();
 
-  // Fetch fresh data (shows spinner only if no cache)
-  try {
-    const d = await apiFetch('/api/pe', 55000);
-    showLoadingBar(false);
-    if (!d.pe_history || d.pe_history.length === 0) {
-      if (!peData) el('pe-chart').innerHTML = `<div class="error-box">Keine KGV-Daten verfügbar.<br><small>${currentTicker}</small></div>`;
+  for (let attempt = 1; attempt <= 2; attempt++) {
+    try {
+      const d = await apiFetch('/api/pe', 75000);
+      _stopPETimer();
+      showLoadingBar(false);
+      if (!d.pe_history || d.pe_history.length === 0) {
+        if (!peData) el('pe-chart').innerHTML =
+          `<div class="error-box">Keine KGV-Daten für ${currentTicker}.<br>` +
+          `<button class="retry-btn" onclick="retryPE()">Nochmal</button></div>`;
+        return;
+      }
+      try { localStorage.setItem(lsKey(), JSON.stringify(d)); } catch(e) {}
+      applyPEData(d);
+      loadEarnings();
       return;
-    }
-    try { localStorage.setItem(lsKey(), JSON.stringify(d)); } catch(e) {}
-    applyPEData(d);
-    // Load earnings after PE chart loaded
-    loadEarnings();
-  } catch(e) {
-    showLoadingBar(false);
-    if (!peData) {
-      const msg = e.name === 'AbortError' ? 'Zeitüberschreitung. Bitte neu laden.' : 'KGV-Daten nicht verfügbar.';
-      el('pe-chart').innerHTML = `<div class="error-box">⚠ ${msg}<br><button class="retry-btn" onclick="retryPE()">Neu laden</button></div>`;
+    } catch(e) {
+      if (attempt === 1) {
+        await new Promise(r => setTimeout(r, 4000));
+        if (!peData) _startPETimer();
+      } else {
+        _stopPETimer();
+        showLoadingBar(false);
+        if (!peData)
+          el('pe-chart').innerHTML =
+            `<div class="error-box">⚠ Server antwortet nicht.<br>` +
+            `<small style="opacity:.7">Free-Hosting schläft bei Inaktivität &ndash; bitte kurz warten.</small><br>` +
+            `<button class="retry-btn" onclick="retryPE()">Nochmal laden</button></div>`;
+      }
     }
   }
 }
 
 function retryPE() {
   peData = null;
-  el('pe-chart').innerHTML = `<div class="loading-box"><div class="spinner"></div><span>Berechne historisches KGV…</span></div>`;
+  _startPETimer();
   loadPEChart();
 }
 
