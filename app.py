@@ -341,7 +341,7 @@ def _prefetch(ticker: str) -> dict:
 
     def get_hist():
         try:
-            h = yf.Ticker(ticker).history(period="3y", interval="1d")
+            h = yf.Ticker(ticker).history(period="5y", interval="1d")
             return h
         except Exception as e: log.warning("[%s] history: %s", ticker, e); return pd.DataFrame()
 
