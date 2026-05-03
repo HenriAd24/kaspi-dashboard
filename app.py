@@ -325,9 +325,24 @@ def _prefetch(ticker: str) -> dict:
     def get_info():
         try:
             r = t.info
-            return r if r and len(r) > 5 else {}
+            if not r:
+                return {}
+            if len(r) > 5:
+                log.info("[%s] t.info OK (%d fields)", ticker, len(r))
+                return r
+            # Partial response — extract currency fields at minimum
+            partial = {k: v for k, v in r.items() if v is not None}
+            if partial:
+                log.info("[%s] t.info partial (%d fields): %s", ticker, len(partial), list(partial.keys()))
+                return partial
         except Exception as e:
-            log.warning("[%s] t.info: %s", ticker, e); return {}
+            log.warning("[%s] t.info: %s", ticker, e)
+        # Last resort: get at least trading currency from fast_info
+        try:
+            cur = getattr(t.fast_info, "currency", None)
+            return {"currency": cur} if cur else {}
+        except Exception:
+            return {}
 
     def get_eh():
         try: return t.earnings_history
@@ -367,8 +382,13 @@ def _prefetch(ticker: str) -> dict:
 
 
 def _detect_eps_fx_factor(ticker: str, info: dict, data: dict, sorted_q: list) -> float:
-    """Detect currency conversion factor when trailingEps (USD anchor) is unavailable.
-    Returns factor to multiply raw EPS values to get USD EPS."""
+    """Detect currency conversion factor for EPS values → USD.
+
+    Method 1 (precise): financialCurrency vs currency from t.info metadata.
+                        Works for ALL currencies (BRL, MXN, EUR, KZT, JPY …).
+    Method 2 (heuristic): magnitude scan for large-denomination currencies
+                          when t.info is blocked and financialCurrency unknown.
+    """
     if len(sorted_q) < 4:
         return 1.0
 
@@ -384,38 +404,58 @@ def _detect_eps_fx_factor(ticker: str, info: dict, data: dict, sorted_q: list) -
     if last4 <= 0:
         return 1.0
 
+    # ── Method 1: currency metadata — precise, works for any currency ──────
+    fin_cur = (info.get("financialCurrency") or "").upper().strip()
+    trd_cur = (info.get("currency") or
+               (getattr(fi, "currency", None) if fi else None) or "USD").upper().strip()
+
+    if fin_cur and trd_cur and fin_cur != trd_cur:
+        log.info("[%s] Currency mismatch: financial=%s trading=%s", ticker, fin_cur, trd_cur)
+        # Try direct pair first (e.g. BRLUSD=X), then inverse (USDBRL=X)
+        for pair in (f"{fin_cur}{trd_cur}=X", f"{trd_cur}{fin_cur}=X"):
+            try:
+                rate = float(yf.Ticker(pair).fast_info.last_price)
+                if rate <= 0:
+                    continue
+                factor = rate if pair.startswith(fin_cur) else 1.0 / rate
+                test_pe = price / (last4 * factor)
+                if 0.5 <= test_pe <= 500:
+                    log.info("[%s] FX %s: factor=%.6f, pe=%.1f", ticker, pair, factor, test_pe)
+                    return factor
+            except Exception as e:
+                log.debug("[%s] FX %s: %s", ticker, pair, e)
+        log.warning("[%s] FX metadata lookup failed for %s→%s", ticker, fin_cur, trd_cur)
+
+    # ── Method 2: magnitude heuristic (t.info blocked, no financialCurrency) ─
     implied_pe = price / last4
-    if 0.5 <= implied_pe <= 500:
-        return 1.0  # Looks like USD already
-
-    log.info("[%s] implied PE=%.4fx — detecting FX conversion (price=%.2f, ttm_raw=%.2f)",
-             ticker, implied_pe, price, last4)
-
-    # Try USDKZT (covers KSPI and other KZT-denominated stocks)
-    try:
-        kzt_rate = float(yf.Ticker("USDKZT=X").fast_info.last_price)
-        if kzt_rate > 0:
-            test_pe = price / (last4 / kzt_rate)
-            if 2 < test_pe < 200:
-                log.info("[%s] KZT→USD confirmed: rate=%.1f, pe=%.1f", ticker, kzt_rate, test_pe)
-                return 1.0 / kzt_rate
-    except Exception as e:
-        log.warning("[%s] USDKZT lookup: %s", ticker, e)
-
-    # Try financialCurrency if partially available in info
-    fin_cur = info.get("financialCurrency", "")
-    if fin_cur and fin_cur != "USD":
-        try:
-            fx = float(yf.Ticker(f"USD{fin_cur}=X").fast_info.last_price)
-            if fx > 0:
-                test_pe = price / (last4 / fx)
+    if implied_pe < 0.5:
+        log.info("[%s] implied PE=%.4f — scanning large-denomination FX pairs", ticker, implied_pe)
+        candidates = [
+            "USDKZT=X",  # Kazakhstan Tenge    ~460
+            "USDJPY=X",  # Japanese Yen        ~150
+            "USDKRW=X",  # Korean Won         ~1350
+            "USDINR=X",  # Indian Rupee          ~84
+            "USDIDR=X",  # Indonesian Rupiah  ~15800
+            "USDVND=X",  # Vietnamese Dong    ~25000
+            "USDCLP=X",  # Chilean Peso          ~920
+            "USDCOP=X",  # Colombian Peso       ~4000
+            "USDHUF=X",  # Hungarian Forint      ~360
+            "USDTRY=X",  # Turkish Lira           ~32
+            "USDMXN=X",  # Mexican Peso           ~17
+        ]
+        for fx_pair in candidates:
+            try:
+                rate = float(yf.Ticker(fx_pair).fast_info.last_price)
+                if rate <= 0:
+                    continue
+                test_pe = price / (last4 / rate)
                 if 2 < test_pe < 200:
-                    log.info("[%s] %s→USD: rate=%.4f, pe=%.1f", ticker, fin_cur, fx, test_pe)
-                    return 1.0 / fx
-        except Exception as e:
-            log.warning("[%s] FX %s: %s", ticker, fin_cur, e)
+                    log.info("[%s] %s matched: rate=%.1f, pe=%.1f", ticker, fx_pair, rate, test_pe)
+                    return 1.0 / rate
+            except Exception:
+                pass
+        log.warning("[%s] No FX match (implied PE=%.4f) — data may be wrong", ticker, implied_pe)
 
-    log.warning("[%s] FX detection failed, eps_factor=1.0 (data may be wrong)", ticker)
     return 1.0
 
 
