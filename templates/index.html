@@ -466,90 +466,48 @@ main {
 }
 .val-dot { width: 9px; height: 9px; border-radius: 50%; flex-shrink: 0; }
 
-/* ── Metrics grid ────────────────────────────────────────────────────── */
-.metrics-grid {
+/* ── Valuation scenarios ─────────────────────────────────────────────── */
+.val-scenarios-wrap {
+  padding: 14px 20px 18px;
+  border-top: 1px solid var(--border);
+}
+.val-sc-title {
+  font-size: 11px;
+  color: var(--muted);
+  margin-bottom: 10px;
+}
+.val-sc-grid {
   display: grid;
-  grid-template-columns: repeat(2, 1fr);
+  grid-template-columns: repeat(3, 1fr);
   gap: 10px;
 }
-.metric-card {
-  background: var(--surface);
+.val-sc-card {
   border-radius: var(--radius-sm);
-  box-shadow: var(--shadow-sm);
-  padding: 14px 16px;
+  padding: 12px 14px;
+  border: 1px solid var(--border);
   display: flex;
   flex-direction: column;
-  gap: 5px;
-  border: 1px solid var(--border);
-  transition: background .2s;
+  gap: 3px;
 }
-.metric-label {
-  font-size: 10px;
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: .6px;
-  color: var(--muted);
-}
-.metric-value {
-  font-size: 22px;
-  font-weight: 800;
-  color: var(--text);
-  font-variant-numeric: tabular-nums;
-  line-height: 1.1;
-}
-.metric-sub { font-size: 11px; color: var(--muted); }
-
-/* ── 52W visual bar card ─────────────────────────────────────────────── */
-.metric-card-wide {
-  grid-column: span 2;
-}
-.w52-bar-wrap {
-  margin-top: 6px;
-  display: flex;
-  align-items: center;
-  gap: 10px;
-}
-.w52-label-low, .w52-label-high {
-  font-size: 11px;
-  font-weight: 700;
-  color: var(--muted);
-  white-space: nowrap;
-  min-width: 52px;
-}
-.w52-label-high { text-align: right; }
-.w52-track {
-  flex: 1;
-  height: 6px;
-  background: var(--border);
-  border-radius: 3px;
-  position: relative;
-}
-.w52-fill {
-  position: absolute;
-  left: 0;
-  top: 0;
-  height: 100%;
-  background: linear-gradient(90deg, #16a34a, #ca8a04, #dc2626);
-  border-radius: 3px;
-  transition: width .4s;
-}
-.w52-dot {
-  position: absolute;
-  top: 50%;
-  transform: translate(-50%, -50%);
-  width: 12px;
-  height: 12px;
-  border-radius: 50%;
-  background: var(--primary);
-  border: 2px solid var(--surface);
-  box-shadow: 0 0 0 2px var(--primary);
-  transition: left .4s;
-}
-.w52-pct {
-  font-size: 11px;
-  color: var(--muted);
-  text-align: center;
-  margin-top: 4px;
+.val-sc-cheap { background: rgba(21,128,61,0.06); border-color: rgba(21,128,61,0.25); }
+.val-sc-fair  { background: rgba(202,138,4,0.06);  border-color: rgba(202,138,4,0.25); }
+.val-sc-exp   { background: rgba(185,28,28,0.06);  border-color: rgba(185,28,28,0.25); }
+.val-sc-label { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: .5px; color: var(--muted); }
+.val-sc-kgv   { font-size: 11px; color: var(--text2); margin-bottom: 2px; }
+.val-sc-price { font-size: 20px; font-weight: 800; color: var(--text); font-variant-numeric: tabular-nums; }
+.val-sc-change { font-size: 13px; font-weight: 700; }
+.val-sc-change.up   { color: var(--green); }
+.val-sc-change.down { color: var(--red); }
+.val-sc-change.flat { color: var(--muted); }
+.val-target {
+  margin-top: 12px;
+  font-size: 12px;
+  color: var(--text2);
+  line-height: 1.6;
+  padding: 10px 12px;
+  background: var(--surface2);
+  border-radius: var(--radius-sm);
+  border-left: 3px solid var(--primary);
 }
 
 /* ── Loading / error ─────────────────────────────────────────────────── */
@@ -634,29 +592,19 @@ footer {
 }
 
 /* ── Responsive ──────────────────────────────────────────────────────── */
-@media (min-width: 480px) {
-  .metrics-grid { grid-template-columns: repeat(3, 1fr); }
-  .metric-card-wide { grid-column: span 3; }
-}
 @media (min-width: 768px) {
   main { padding: 20px 24px; gap: 16px; }
-  .metrics-grid { grid-template-columns: repeat(4, 1fr); }
-  .metric-card-wide { grid-column: span 4; }
-  #pe-chart, #price-chart { height: 440px; }
+  #pe-chart { height: 440px; }
   .price-value { font-size: 56px; }
-}
-@media (min-width: 1024px) {
-  .metrics-grid { grid-template-columns: repeat(4, 1fr); }
-  .metric-card-wide { grid-column: span 4; }
 }
 @media (max-width: 479px) {
   .price-value { font-size: 40px; }
   .price-stats { gap: 6px 16px; }
   .stat-item { padding: 8px 10px; min-width: 64px; }
-  #pe-chart, #price-chart { height: 320px; }
+  #pe-chart { height: 320px; }
   .search-row { max-width: 100%; }
   .header-inner { height: auto; }
-  .metric-card-wide { grid-column: span 2; }
+  .val-sc-grid { grid-template-columns: 1fr; }
 }
 </style>
 </head>
@@ -750,52 +698,31 @@ footer {
       <div class="stat-item"><div class="stat-label">P90</div><div id="s-p90" class="stat-value stat-p90">–</div></div>
       <div class="stat-item"><div class="stat-label">Aktuell</div><div id="s-cur" class="stat-value">–</div></div>
     </div>
-  </div>
 
-  <!-- Metrics grid -->
-  <div class="metrics-grid">
-    <div class="metric-card">
-      <div class="metric-label">KGV (Trailing)</div>
-      <div id="m-pe" class="metric-value">–</div>
-      <div class="metric-sub">Kurs-Gewinn-Verhältnis</div>
-    </div>
-    <div class="metric-card">
-      <div class="metric-label">KGV (Forward)</div>
-      <div id="m-fpe" class="metric-value">–</div>
-      <div class="metric-sub">Erwartetes KGV</div>
-    </div>
-    <div class="metric-card">
-      <div class="metric-label">EPS (TTM)</div>
-      <div id="m-eps" class="metric-value">–</div>
-      <div class="metric-sub">Gewinn je Aktie</div>
-    </div>
-    <div class="metric-card">
-      <div class="metric-label">Div.-Rendite</div>
-      <div id="m-div" class="metric-value">–</div>
-      <div class="metric-sub">Jährliche Ausschüttung</div>
-    </div>
-    <!-- 52W visual bar — spans 2 columns -->
-    <div class="metric-card metric-card-wide" id="card-52w">
-      <div class="metric-label">52-Wochen-Bereich</div>
-      <div class="w52-bar-wrap">
-        <div class="w52-label-low" id="w52-low">–</div>
-        <div class="w52-track">
-          <div class="w52-fill" id="w52-fill" style="width:0%"></div>
-          <div class="w52-dot"  id="w52-dot"  style="left:0%"></div>
+    <!-- Kursziel-Szenarien -->
+    <div id="val-scenarios" class="val-scenarios-wrap" style="display:none">
+      <div id="val-sc-title" class="val-sc-title"></div>
+      <div class="val-sc-grid">
+        <div class="val-sc-card val-sc-cheap">
+          <div class="val-sc-label">Günstig · P25</div>
+          <div id="val-kgv-p25" class="val-sc-kgv">–</div>
+          <div id="val-price-p25" class="val-sc-price">–</div>
+          <div id="val-upside-p25" class="val-sc-change">–</div>
         </div>
-        <div class="w52-label-high" id="w52-high">–</div>
+        <div class="val-sc-card val-sc-fair">
+          <div class="val-sc-label">Fairer Wert · Median</div>
+          <div id="val-kgv-med" class="val-sc-kgv">–</div>
+          <div id="val-price-med" class="val-sc-price">–</div>
+          <div id="val-upside-med" class="val-sc-change">–</div>
+        </div>
+        <div class="val-sc-card val-sc-exp">
+          <div class="val-sc-label">Teuer · P75</div>
+          <div id="val-kgv-p75" class="val-sc-kgv">–</div>
+          <div id="val-price-p75" class="val-sc-price">–</div>
+          <div id="val-upside-p75" class="val-sc-change">–</div>
+        </div>
       </div>
-      <div class="w52-pct" id="w52-pct"></div>
-    </div>
-    <div class="metric-card">
-      <div class="metric-label">Beta</div>
-      <div id="m-beta" class="metric-value">–</div>
-      <div class="metric-sub">Marktkorrelation</div>
-    </div>
-    <div class="metric-card">
-      <div class="metric-label">PEG Ratio</div>
-      <div id="m-peg" class="metric-value">–</div>
-      <div class="metric-sub">PE zu Wachstum</div>
+      <div id="val-target" class="val-target"></div>
     </div>
   </div>
 
@@ -1083,15 +1010,8 @@ function resetAndLoad() {
     el('ps-vol').textContent = el('ps-mc').textContent = '–';
   el('stats-bar').style.display = 'none';
   el('val-badge').style.display = 'none';
+  el('val-scenarios').style.display = 'none';
   el('earnings-info').style.display = 'none';
-  ['m-pe','m-fpe','m-eps','m-div','m-beta','m-peg'].forEach(id => {
-    const e = el(id); if (e) e.textContent = '–';
-  });
-  el('w52-low').textContent = '–';
-  el('w52-high').textContent = '–';
-  el('w52-fill').style.width = '0%';
-  el('w52-dot').style.left = '0%';
-  el('w52-pct').textContent = '';
 
   if (!localStorage.getItem(`pe_${currentTicker}`))
     el('pe-chart').innerHTML = `<div class="loading-box"><div class="spinner"></div><span>Berechne historisches KGV…</span></div>`;
@@ -1135,40 +1055,12 @@ function fmtMC(v) {
   return '$' + v;
 }
 
-// ── 52W visual bar ─────────────────────────────────────────────────────────
-function update52WBar(low, high, cur) {
-  if (!low || !high || low >= high) return;
-  el('w52-low').textContent  = `$${fmt(low, 0)}`;
-  el('w52-high').textContent = `$${fmt(high, 0)}`;
-  const pct = Math.max(0, Math.min(100, ((cur - low) / (high - low)) * 100));
-  el('w52-fill').style.width = pct.toFixed(1) + '%';
-  el('w52-dot').style.left   = pct.toFixed(1) + '%';
-  const fromLow  = ((cur / low  - 1) * 100).toFixed(1);
-  const fromHigh = ((cur / high - 1) * 100).toFixed(1);
-  el('w52-pct').textContent = `Aktuell $${fmt(cur)} · +${fromLow}% vom Tief · ${fromHigh}% vom Hoch`;
-}
-
 // ── Company info ───────────────────────────────────────────────────────────
 async function loadInfo() {
   try {
     const d = await apiFetch('/api/info', 20000);
     if (d.name) el('company-name').textContent = d.name + (d.exchange ? ` · ${d.exchange}` : '');
     if (d.market_cap_fmt && d.market_cap_fmt !== '-') el('ps-mc').textContent = d.market_cap_fmt;
-
-    const pe  = d.trailing_pe,  fpe = d.forward_pe;
-    const eps = d.trailing_eps, peg = d.peg_ratio;
-    el('m-pe').textContent   = pe  != null ? fmt(pe, 1) + 'x' : '–';
-    el('m-fpe').textContent  = fpe != null ? fmt(fpe,1) + 'x' : '–';
-    el('m-eps').textContent  = eps != null ? '$' + fmt(eps, 2) : '–';
-    el('m-peg').textContent  = peg != null ? fmt(peg, 2)       : '–';
-    el('m-div').textContent  = d.dividend_yield != null ? (d.dividend_yield*100).toFixed(2)+'%' : '–';
-    el('m-beta').textContent = d.beta != null ? fmt(d.beta, 2) : '–';
-
-    const liveData = await apiFetch('/api/live', 5000).catch(() => null);
-    const cur = liveData?.price ?? null;
-    if (d.fifty2_high != null && d.fifty2_low != null) {
-      update52WBar(d.fifty2_low, d.fifty2_high, cur ?? ((d.fifty2_low + d.fifty2_high) / 2));
-    }
   } catch(e) {
     console.warn('Info Fehler:', e);
   }
@@ -1218,6 +1110,54 @@ function applyPEData(d) {
   renderPEChart(d);
   updateStats(d);
   updateValBadge(d);
+  updateValuation(d);
+}
+
+function updateValuation(d) {
+  const s = d.stats;
+  if (!s || !s.p25 || !d.pe_history || !d.pe_history.length) return;
+
+  const lastRow  = d.pe_history[d.pe_history.length - 1];
+  const eps      = lastRow.ttm_eps;
+  const curPrice = lastRow.price;
+  if (!eps || eps <= 0 || !curPrice || curPrice <= 0) return;
+
+  const scenarios = [
+    { key: 'p25', pe: s.p25,    id: 'p25' },
+    { key: 'med', pe: s.median, id: 'med' },
+    { key: 'p75', pe: s.p75,    id: 'p75' },
+  ];
+
+  scenarios.forEach(sc => {
+    const target = sc.pe * eps;
+    const upside = ((target / curPrice) - 1) * 100;
+    el(`val-kgv-${sc.id}`).textContent    = `KGV ${sc.pe}x`;
+    el(`val-price-${sc.id}`).textContent  = `$${fmt(target, 0)}`;
+    const uEl = el(`val-upside-${sc.id}`);
+    uEl.textContent = (upside >= 0 ? '+' : '') + fmt(upside, 1) + '%';
+    uEl.className   = 'val-sc-change ' + (upside >= 3 ? 'up' : upside <= -3 ? 'down' : 'flat');
+  });
+
+  const medTarget = s.median * eps;
+  const medUpside = ((medTarget / curPrice) - 1) * 100;
+  const isCheap   = d.val_label === 'Günstig' || d.val_label === 'Leicht günstig';
+  const isExp     = d.val_label === 'Teuer'   || d.val_label === 'Leicht teuer';
+
+  let targetText;
+  if (isCheap) {
+    targetText = `Aktie notiert unter dem historischen Median-KGV (${s.median}x). `
+      + `Konservatives Kursziel (Median): $${fmt(medTarget, 0)} · Aufwärtspotenzial: +${fmt(medUpside, 1)}%`;
+  } else if (isExp) {
+    targetText = `Aktie notiert über dem historischen Median-KGV (${s.median}x). `
+      + `Rückkehr zum Median würde Kurs auf $${fmt(medTarget, 0)} bringen (${fmt(medUpside, 1)}%).`;
+  } else {
+    targetText = `Aktie nahe historischem Median-KGV (${s.median}x) bewertet. `
+      + `Kursziel bei Median: $${fmt(medTarget, 0)}`;
+  }
+
+  el('val-sc-title').textContent = `Kursziel-Szenarien · TTM-EPS $${eps.toFixed(2)} · Kurs $${curPrice.toFixed(2)}`;
+  el('val-target').textContent   = targetText;
+  el('val-scenarios').style.display = 'block';
 }
 
 async function loadPEChart() {
